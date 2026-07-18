@@ -1,10 +1,26 @@
 /*
-  DeutschKarten — datos de tarjetas
+  DeutschKarten — datos de tarjetas (mazo base)
   -----------------------------------------------------------------
   Este es un set de EJEMPLO (12 tarjetas) para que puedas probar la
   app ya mismo. Cuando me pases tu archivo anki-german.jsx completo
   (o un export CSV/JSON), reemplazo este array con tus 2600+ tarjetas
   reales, manteniendo la misma estructura de campos.
+
+  IMPORTANTE — a partir de ahora, para añadir vocabulario NUEVO cada
+  semana ya NO hace falta editar este archivo ni volver a subirlo a
+  GitHub. Usa el importador CSV dentro de la propia app:
+    - Pestaña Mazos → botón "+" arriba a la derecha → CSV con
+      columna "level" (o "nivel") indicando el mazo de cada fila.
+    - Dentro de un mazo → "Importar tarjetas a este mazo" → CSV sin
+      columna de nivel (todas las filas se asignan a ese mazo).
+
+  Columnas de CSV reconocidas (con alias en español):
+    german/deutsch, english/ingles, wordType/tipo, topic/tema,
+    gender/articulo/genero, plural, example/ejemplo/beispiel,
+    notes/notas, level/nivel
+
+  Este archivo cards-data.js solo hace falta reemplazarlo para una
+  reestructuración grande (p. ej. corregir muchas entradas a la vez).
 
   Estructura esperada por tarjeta:
   {

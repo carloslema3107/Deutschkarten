@@ -7,564 +7,752 @@
 <meta name="theme-color" content="#3B2A20">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/3.44.0/tabler-icons.min.css">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="DeutschKarten">
 <style>
   :root{
-    --wood:#3B2A20;
-    --wood-dark:#2A1D16;
-    --card:#F3EAD3;
-    --card-back:#EDE2C8;
-    --ink:#2B2620;
-    --ink-soft:#6b6153;
-    --red:#B5502D;
-    --ochre:#C99A3B;
-    --moss:#5B7B4F;
-    --teal:#3E7C7A;
-    --gold-line: rgba(181,80,45,0.35);
+    --wood:#3B2A20; --wood-dark:#2A1D16;
+    --card:#F3EAD3; --row:#EDE2C8; --line:#D9C9A8;
+    --ink:#2B2620; --ink-soft:#6b6153;
+    --red:#B5502D; --ochre:#C99A3B; --moss:#5B7B4F; --teal:#3E7C7A;
+    --purple:#7f6bb0; --blue:#5f93b0; --lightred:#d9846f;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
-  html,body{height:100%;}
+  html,body{height:100%; margin:0;}
   body{
-    margin:0;
     font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif;
-    background:
-      radial-gradient(ellipse at top, #4a3527 0%, var(--wood) 45%, var(--wood-dark) 100%);
+    background:var(--wood);
     color:var(--card);
-    min-height:100vh;
+    display:flex; flex-direction:column;
+    height:100vh; overflow:hidden;
     padding-top:env(safe-area-inset-top);
     padding-bottom:env(safe-area-inset-bottom);
-    overflow-x:hidden;
   }
-  @font-face{
-    font-family:'CatalogSerif';
-    src:local('Georgia');
-  }
-  .serif{font-family:Georgia,'Iowan Old Style','Palatino Linotype',serif;}
-  .mono{font-family:'SF Mono','Courier New',monospace; letter-spacing:0.04em;}
+  .serif{font-family:Georgia,serif;}
+  .mono{font-family:'SF Mono','Courier New',monospace;}
 
-  header{
-    padding:18px 20px 10px;
-    text-align:center;
+  #topbar{
+    padding:10px 14px 8px; display:flex; align-items:center; gap:8px; min-height:26px; flex:0 0 auto;
   }
-  header h1{
-    font-family:Georgia,serif;
-    font-weight:700;
-    font-size:22px;
-    margin:0;
-    letter-spacing:0.02em;
-    color:var(--card);
-  }
-  header .sub{
-    font-family:'SF Mono','Courier New',monospace;
-    font-size:11px;
-    letter-spacing:0.12em;
-    text-transform:uppercase;
-    color:#c9a876;
-    margin-top:2px;
-  }
+  #topbar .backbtn{background:none;border:none;color:var(--card);font-size:22px;padding:0 4px 0 0;cursor:pointer;line-height:1;}
+  #topbar .title{font-family:Georgia,serif;font-weight:700;font-size:19px;color:var(--card);flex:1;}
+  #topbar .plusbtn{background:none;border:none;color:var(--card);font-size:22px;cursor:pointer;padding:0 4px;}
 
-  /* Drawer tabs (level selector) */
-  .drawers{
-    display:flex;
-    gap:6px;
-    padding:14px 16px 4px;
-    overflow-x:auto;
-    scrollbar-width:none;
-  }
-  .drawers::-webkit-scrollbar{display:none;}
-  .drawer-tab{
-    flex:0 0 auto;
-    font-family:'SF Mono','Courier New',monospace;
-    font-size:12px;
-    letter-spacing:0.06em;
-    padding:8px 14px;
-    background:#4a3527;
-    color:#d8c4a0;
-    border:1px solid rgba(255,255,255,0.08);
-    border-radius:4px 4px 2px 2px;
-    cursor:pointer;
-    white-space:nowrap;
-    transition:all .15s ease;
-    position:relative;
-  }
-  .drawer-tab.active{
-    background:var(--card);
-    color:var(--ink);
-    box-shadow:0 3px 8px rgba(0,0,0,0.35);
-  }
-  .drawer-tab .count{
-    margin-left:6px;
-    opacity:0.6;
-    font-size:10px;
-  }
+  #content{flex:1; overflow-y:auto; background:var(--card); -webkit-overflow-scrolling:touch;}
 
-  main{
-    padding:10px 20px 30px;
-    max-width:480px;
-    margin:0 auto;
-  }
+  .deck-row{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line);background:var(--row);cursor:pointer;}
+  .deck-row .name{font-family:Georgia,serif;font-weight:700;font-size:17px;color:var(--ink);}
+  .deck-row .sub{font-size:11px;color:var(--ink-soft);margin-top:3px;}
+  .badge{font-family:'SF Mono',monospace;font-size:11px;padding:4px 9px;border-radius:10px;color:#fff;white-space:nowrap;}
+  .badge.pend{background:var(--red);}
+  .badge.nvo{background:var(--purple);}
 
-  /* Stats strip */
-  .stats-strip{
-    display:flex;
-    justify-content:space-between;
-    padding:10px 4px 18px;
-    font-family:'SF Mono','Courier New',monospace;
-    font-size:11px;
-    color:#c9a876;
-    border-bottom:1px dashed rgba(255,255,255,0.15);
-    margin-bottom:20px;
-  }
-  .stats-strip div{text-align:center;}
-  .stats-strip .num{display:block; font-size:18px; color:var(--card); font-family:Georgia,serif; font-weight:700;}
+  .sub-label{padding:10px 16px 4px;font-family:'SF Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft);}
 
-  /* Card stage */
-  .stage{
-    perspective:1400px;
-    height:340px;
-    margin-bottom:22px;
-  }
-  .card-flip{
-    position:relative;
-    width:100%;
-    height:100%;
-    transition:transform 0.45s cubic-bezier(.4,.2,.2,1);
-    transform-style:preserve-3d;
-    cursor:pointer;
-  }
+  .hist{display:flex;align-items:flex-end;gap:6px;padding:16px 16px 6px;height:120px;}
+  .hist .bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;}
+  .hist .bar{width:80%;border-radius:3px 3px 0 0;min-height:3px;}
+  .hist .val{font-family:'SF Mono',monospace;font-size:9px;color:var(--ink);}
+  .hist .lbl{font-family:'SF Mono',monospace;font-size:8px;color:var(--ink-soft);}
+
+  .set-row{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--line);background:var(--row);cursor:pointer;}
+  .set-row i{font-size:17px;color:var(--teal);width:18px;text-align:center;}
+  .set-row .lbl{flex:1;font-size:14px;color:var(--ink);}
+  .set-row .val{font-size:12px;color:var(--ink-soft);}
+  .set-row .chev{font-size:14px;color:var(--ink-soft);}
+
+  .toggle{width:42px;height:24px;border-radius:12px;background:var(--line);position:relative;flex:0 0 auto;transition:background .15s;}
+  .toggle.on{background:var(--moss);}
+  .toggle .knob{width:18px;height:18px;border-radius:50%;background:#fff;position:absolute;top:3px;left:3px;transition:left .15s;}
+  .toggle.on .knob{left:21px;}
+
+  .sticky-bottom{position:sticky;bottom:0;background:var(--row);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--line);}
+  .sticky-bottom .go{display:flex;align-items:center;gap:6px;color:var(--teal);font-weight:700;font-size:15px;}
+  .sticky-bottom .est{font-size:10px;color:var(--ink-soft);margin-top:1px;}
+  .sticky-bottom .count{background:var(--moss);color:#fff;font-family:'SF Mono',monospace;font-size:13px;padding:6px 14px;border-radius:14px;}
+
+  .metric-row{display:flex;gap:8px;padding:0 16px 10px;}
+  .metric-card{background:var(--row);border-radius:8px;padding:10px 12px;flex:1;min-width:0;cursor:default;}
+  .metric-card[data-goal-card]{cursor:pointer;}
+  .metric-card .lbl{font-family:'SF Mono',monospace;font-size:8px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft);}
+  .metric-card .val{font-family:Georgia,serif;font-weight:700;font-size:17px;color:var(--ink);margin-top:2px;}
+
+  .empty-msg{padding:60px 24px;text-align:center;color:var(--ink-soft);}
+  .empty-msg .big{font-family:Georgia,serif;font-size:18px;color:var(--ink);margin-bottom:6px;}
+  .empty-msg .small{font-size:12px;line-height:1.6;}
+
+  #tabbar{display:flex;background:var(--wood);border-top:1px solid rgba(255,255,255,.1);flex:0 0 auto;}
+  .tab-btn{flex:1;background:none;border:none;padding:8px 4px 10px;color:#c9a876;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;}
+  .tab-btn.active{color:var(--card);}
+  .tab-btn i{font-size:19px;}
+  .tab-btn span{font-family:'SF Mono',monospace;font-size:9px;}
+
+  #studyOverlay{position:fixed;inset:0;background:var(--wood);display:none;flex-direction:column;z-index:50;
+    padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom);}
+  #studyOverlay.show{display:flex;}
+  .study-top{padding:12px 16px 6px;display:flex;align-items:center;justify-content:space-between;}
+  .study-top .exitbtn{background:none;border:none;color:var(--card);font-size:22px;cursor:pointer;}
+  .study-top .cnt{font-family:'SF Mono',monospace;font-size:12px;color:#c9a876;}
+  .study-body{flex:1;padding:6px 20px;display:flex;align-items:center;justify-content:center;}
+  .stage{perspective:1400px;width:100%;max-width:420px;height:300px;}
+  .card-flip{position:relative;width:100%;height:100%;transition:transform .4s cubic-bezier(.4,.2,.2,1);transform-style:preserve-3d;cursor:pointer;}
   .card-flip.flipped{transform:rotateY(180deg);}
-  .face{
-    position:absolute;
-    inset:0;
-    backface-visibility:hidden;
-    background:var(--card);
-    border-radius:6px;
-    box-shadow:0 10px 30px rgba(0,0,0,0.4), 0 2px 0 rgba(255,255,255,0.4) inset;
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    justify-content:center;
-    padding:30px 24px;
-    text-align:center;
-  }
-  .face::before{
-    content:'';
-    position:absolute;
-    top:0; left:50%;
-    transform:translateX(-50%);
-    width:70px; height:14px;
-    background:var(--red);
-    border-radius:0 0 4px 4px;
-  }
-  .face .holes{
-    position:absolute;
-    left:10px; top:16px; bottom:16px;
-    width:10px;
-    display:flex;
-    flex-direction:column;
-    justify-content:space-evenly;
-  }
-  .face .holes span{
-    width:8px; height:8px; border-radius:50%;
-    background:var(--wood-dark);
-    box-shadow:inset 0 1px 2px rgba(0,0,0,0.5);
-  }
-  .face.back{transform:rotateY(180deg); background:var(--card-back);}
+  .face{position:absolute;inset:0;backface-visibility:hidden;background:var(--card);border-radius:8px;
+    box-shadow:0 10px 26px rgba(0,0,0,.35);display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:26px 22px;text-align:center;}
+  .face::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:64px;height:13px;background:var(--red);border-radius:0 0 4px 4px;}
+  .face .holes{position:absolute;left:9px;top:15px;bottom:15px;width:9px;display:flex;flex-direction:column;justify-content:space-evenly;}
+  .face .holes span{width:7px;height:7px;border-radius:50%;background:var(--wood-dark);}
+  .face.back{transform:rotateY(180deg);background:var(--row);}
+  .wtype{font-family:'SF Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--red);margin-bottom:8px;}
+  .mainword{font-family:Georgia,serif;font-weight:700;color:var(--ink);line-height:1.25;}
+  .art{color:var(--teal);font-weight:400;}
+  .topictag{margin-top:12px;font-family:'SF Mono',monospace;font-size:10px;color:var(--ink-soft);}
+  .exsent{font-size:13px;color:var(--ink-soft);font-style:italic;margin-top:12px;line-height:1.4;}
+  .taphint{position:absolute;bottom:12px;font-family:'SF Mono',monospace;font-size:9px;color:var(--ink-soft);opacity:.6;text-transform:uppercase;}
+  .ratings{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:0 20px 18px;opacity:0;transform:translateY(8px);pointer-events:none;transition:all .2s ease;}
+  .ratings.show{opacity:1;transform:translateY(0);pointer-events:auto;}
+  .rate-btn{border:none;border-radius:6px;padding:13px 4px 9px;font-family:'SF Mono',monospace;font-size:11px;text-transform:uppercase;color:#fff;cursor:pointer;display:flex;flex-direction:column;gap:3px;align-items:center;}
+  .rate-btn .d{font-size:9px;opacity:.75;font-weight:400;}
+  .rate-btn.again{background:var(--red);} .rate-btn.hard{background:var(--ochre);color:var(--ink);}
+  .rate-btn.good{background:var(--moss);} .rate-btn.easy{background:var(--teal);}
+  .session-done{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px;}
+  .session-done .big{font-family:Georgia,serif;font-size:20px;margin-bottom:8px;}
+  .session-done button{margin-top:20px;background:var(--card);color:var(--ink);border:none;padding:10px 22px;border-radius:6px;font-size:13px;cursor:pointer;}
 
-  .word-type{
-    font-family:'SF Mono','Courier New',monospace;
-    font-size:10px;
-    letter-spacing:0.1em;
-    text-transform:uppercase;
-    color:var(--red);
-    margin-bottom:10px;
-  }
-  .german-word{
-    font-family:Georgia,serif;
-    font-size:32px;
-    font-weight:700;
-    color:var(--ink);
-    line-height:1.25;
-  }
-  .article{color:var(--teal); font-weight:400;}
-  .topic-tag{
-    margin-top:14px;
-    font-family:'SF Mono','Courier New',monospace;
-    font-size:10px;
-    color:var(--ink-soft);
-    letter-spacing:0.06em;
-  }
-  .english-word{
-    font-family:Georgia,serif;
-    font-size:24px;
-    color:var(--ink);
-    margin-bottom:10px;
-  }
-  .example{
-    font-size:14px;
-    color:var(--ink-soft);
-    font-style:italic;
-    margin-top:12px;
-    line-height:1.4;
-  }
-  .tap-hint{
-    position:absolute;
-    bottom:14px;
-    font-family:'SF Mono','Courier New',monospace;
-    font-size:9px;
-    color:var(--ink-soft);
-    opacity:0.6;
-    letter-spacing:0.08em;
-    text-transform:uppercase;
-  }
+  #sheetBg{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;z-index:60;}
+  #sheetBg.show{display:block;}
+  #sheet{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-radius:16px 16px 0 0;z-index:61;
+    display:none;max-height:70vh;overflow-y:auto;padding-bottom:env(safe-area-inset-bottom);}
+  #sheet.show{display:block;}
+  .sheet-hd{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line);}
+  .sheet-hd .t{font-family:Georgia,serif;font-weight:700;color:var(--ink);font-size:15px;}
+  .sheet-hd button{background:none;border:none;color:var(--teal);font-size:13px;font-weight:700;cursor:pointer;}
+  .sheet-opt{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border-bottom:1px solid var(--line);color:var(--ink);font-size:14px;cursor:pointer;}
+  .sheet-opt .chk{color:var(--teal);}
 
-  /* Rating buttons */
-  .ratings{
-    display:grid;
-    grid-template-columns:repeat(4,1fr);
-    gap:8px;
-    opacity:0;
-    transform:translateY(8px);
-    pointer-events:none;
-    transition:all .25s ease;
-  }
-  .ratings.show{opacity:1; transform:translateY(0); pointer-events:auto;}
-  .rate-btn{
-    border:none;
-    border-radius:6px;
-    padding:14px 6px 10px;
-    font-family:'SF Mono','Courier New',monospace;
-    font-size:11px;
-    letter-spacing:0.04em;
-    text-transform:uppercase;
-    color:#fff;
-    cursor:pointer;
-    display:flex;
-    flex-direction:column;
-    gap:4px;
-    align-items:center;
-    transition:transform .1s ease;
-  }
-  .rate-btn:active{transform:scale(0.94);}
-  .rate-btn .days{font-size:9px; opacity:0.75; font-weight:400;}
-  .rate-btn.again{background:var(--red);}
-  .rate-btn.hard{background:var(--ochre); color:#2B2620;}
-  .rate-btn.good{background:var(--moss);}
-  .rate-btn.easy{background:var(--teal);}
-
-  .empty-state{
-    text-align:center;
-    padding:60px 20px;
-    color:#c9a876;
-  }
-  .empty-state .big{
-    font-family:Georgia,serif;
-    font-size:20px;
-    color:var(--card);
-    margin-bottom:8px;
-  }
-  .empty-state .small{
-    font-family:'SF Mono','Courier New',monospace;
-    font-size:12px;
-    line-height:1.6;
-  }
-
-  .progress-bar{
-    height:3px;
-    background:rgba(255,255,255,0.1);
-    border-radius:2px;
-    margin-bottom:18px;
-    overflow:hidden;
-  }
-  .progress-bar .fill{
-    height:100%;
-    background:var(--red);
-    transition:width .3s ease;
-  }
-
-  footer{
-    text-align:center;
-    padding:16px;
-    font-family:'SF Mono','Courier New',monospace;
-    font-size:9px;
-    color:#8a7660;
-    letter-spacing:0.06em;
-  }
+  #toast{position:fixed;left:16px;right:16px;bottom:calc(env(safe-area-inset-bottom) + 70px);background:var(--wood-dark);color:var(--card);
+    padding:10px 14px;border-radius:8px;font-size:12px;text-align:center;z-index:70;opacity:0;transition:opacity .2s;pointer-events:none;}
+  #toast.show{opacity:1;}
 </style>
 </head>
 <body>
 
-<header>
-  <h1>DeutschKarten</h1>
-  <div class="sub">Karteikasten &middot; Fichero personal</div>
-</header>
+<div id="topbar">
+  <button class="backbtn" id="backBtn" style="display:none;"><i class="ti ti-chevron-left"></i></button>
+  <div class="title" id="topTitle">Mazos</div>
+  <button class="plusbtn" id="plusBtn" style="display:none;"><i class="ti ti-plus"></i></button>
+</div>
+<div id="content"></div>
+<div id="tabbar">
+  <button class="tab-btn active" data-tab="mazos"><i class="ti ti-cards"></i><span>Mazos</span></button>
+  <button class="tab-btn" data-tab="stats"><i class="ti ti-chart-bar"></i><span>Estadísticas</span></button>
+  <button class="tab-btn" data-tab="omni"><i class="ti ti-player-play"></i><span>OmniRepaso</span></button>
+</div>
 
-<div class="drawers" id="drawers"></div>
-
-<main>
-  <div class="progress-bar"><div class="fill" id="progressFill" style="width:0%"></div></div>
-  <div class="stats-strip">
-    <div><span class="num" id="statDue">0</span>Hoy</div>
-    <div><span class="num" id="statDone">0</span>Hechas</div>
-    <div><span class="num" id="statStreak">0</span>Racha</div>
-    <div><span class="num" id="statTotal">0</span>Total</div>
+<div id="studyOverlay">
+  <div class="study-top">
+    <button class="exitbtn" id="exitStudy"><i class="ti ti-x"></i></button>
+    <div class="cnt" id="studyCnt">0 / 0</div>
   </div>
-
-  <div id="studyArea">
-    <div class="stage">
-      <div class="card-flip" id="cardFlip">
-        <div class="face front">
-          <div class="holes"><span></span><span></span><span></span><span></span><span></span></div>
-          <div class="word-type" id="typeFront">SUSTANTIVO</div>
-          <div class="german-word" id="germanWord">Wort</div>
-          <div class="topic-tag" id="topicFront"></div>
-          <div class="tap-hint">Toca para voltear</div>
-        </div>
-        <div class="face back">
-          <div class="holes"><span></span><span></span><span></span><span></span><span></span></div>
-          <div class="word-type" id="typeBack">TRADUCCIÓN</div>
-          <div class="english-word" id="englishWord">word</div>
-          <div class="example" id="exampleText"></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="ratings" id="ratings">
-      <button class="rate-btn again" data-q="0">Otra vez<span class="days" id="dAgain">&lt;1d</span></button>
-      <button class="rate-btn hard" data-q="1">Difícil<span class="days" id="dHard">1d</span></button>
-      <button class="rate-btn good" data-q="2">Bien<span class="days" id="dGood">3d</span></button>
-      <button class="rate-btn easy" data-q="3">Fácil<span class="days" id="dEasy">6d</span></button>
-    </div>
+  <div class="study-body" id="studyBody"></div>
+  <div class="ratings" id="ratings">
+    <button class="rate-btn again" data-g="1">Otra vez<span class="d" id="dAgain"></span></button>
+    <button class="rate-btn hard" data-g="2">Difícil<span class="d" id="dHard"></span></button>
+    <button class="rate-btn good" data-g="3">Bien<span class="d" id="dGood"></span></button>
+    <button class="rate-btn easy" data-g="4">Fácil<span class="d" id="dEasy"></span></button>
   </div>
+</div>
 
-  <div id="emptyState" class="empty-state" style="display:none;">
-    <div class="big">Fichero al día</div>
-    <div class="small">No hay tarjetas pendientes en este nivel.<br>Vuelve más tarde o cambia de cajón.</div>
-  </div>
-</main>
-
-<footer>SM-2 &middot; almacenamiento local &middot; sin conexión</footer>
+<div id="sheetBg"></div>
+<div id="sheet">
+  <div class="sheet-hd"><div class="t" id="sheetTitle"></div><button id="sheetDone">Hecho</button></div>
+  <div id="sheetBody"></div>
+</div>
+<div id="toast"></div>
 
 <script src="cards-data.js"></script>
 <script>
-/* ---------- Storage ---------- */
-const PROGRESS_KEY = 'dk_progress_v1';
-const STATS_KEY = 'dk_stats_v1';
+const CUSTOM_KEY='dk_custom_cards_v1', PROGRESS_KEY='dk_progress_v2', SETTINGS_KEY='dk_settings_v1', LOG_KEY='dk_reviewlog_v1';
+function loadJSON(k,f){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):f; }catch(e){ return f; } }
+function saveJSON(k,v){ localStorage.setItem(k, JSON.stringify(v)); }
 
-function loadProgress(){
-  try{ return JSON.parse(localStorage.getItem(PROGRESS_KEY)) || {}; }catch(e){ return {}; }
+const DECKS=['A1','A2','B1.1','B1.2'];
+function allCards(){ return CARDS.concat(loadJSON(CUSTOM_KEY,[])); }
+function cardsForLevel(lv){ return allCards().filter(c=>c.level===lv); }
+
+const DEFAULT_SETTINGS={perSession:20,fontSize:26,autoFlip:0,reviewMode:'fsrs',retention:0.9,orientation:'normal',stabilizeOnFlip:true};
+function getSettings(deckId){ const all=loadJSON(SETTINGS_KEY,{}); return Object.assign({},DEFAULT_SETTINGS, all[deckId]||{}); }
+function setSetting(deckId,key,val){ const all=loadJSON(SETTINGS_KEY,{}); all[deckId]=Object.assign({},getSettings(deckId),{[key]:val}); saveJSON(SETTINGS_KEY,all); }
+
+function getProgress(id){ const p=loadJSON(PROGRESS_KEY,{}); return p[id]||null; }
+function setProgress(id,val){ const p=loadJSON(PROGRESS_KEY,{}); p[id]=val; saveJSON(PROGRESS_KEY,p); }
+
+function logReview(cardId,level,grade,elapsedMs){
+  const log=loadJSON(LOG_KEY,[]);
+  log.push({ts:new Date().toISOString(),cardId,level,grade,elapsedMs:elapsedMs||0});
+  if(log.length>20000) log.splice(0, log.length-20000);
+  saveJSON(LOG_KEY,log);
 }
-function saveProgress(p){ localStorage.setItem(PROGRESS_KEY, JSON.stringify(p)); }
-
-function loadStats(){
-  try{ return JSON.parse(localStorage.getItem(STATS_KEY)) || {lastStudyDate:null, streak:0, doneToday:0, doneDate:null}; }
-  catch(e){ return {lastStudyDate:null, streak:0, doneToday:0, doneDate:null}; }
+function dayKey(d){ return d.toISOString().slice(0,10); }
+function reviewsByDay(){
+  const log=loadJSON(LOG_KEY,[]);
+  const map={};
+  log.forEach(e=>{ const k=dayKey(new Date(e.ts)); map[k]=(map[k]||0)+1; });
+  return map;
 }
-function saveStats(s){ localStorage.setItem(STATS_KEY, JSON.stringify(s)); }
-
-function todayStr(){ return new Date().toISOString().slice(0,10); }
-
-/* ---------- SM-2 ---------- */
-function schedule(entry, quality){
-  // quality: 0 again, 1 hard, 2 good, 3 easy  -> mapped to SM2 scale
-  let {ef=2.5, interval=0, reps=0} = entry || {};
-  const qMap = [1, 3, 4, 5][quality];
-  if(qMap < 3){
-    reps = 0;
-    interval = quality === 0 ? 0 : 1; // "again" due immediately, "hard" ~1 day handled below
-  } else {
-    if(reps === 0) interval = 1;
-    else if(reps === 1) interval = 6;
-    else interval = Math.round(interval * ef);
-    reps += 1;
+function computeStreak(map){
+  let streak=0; let cursor=new Date();
+  if(!map[dayKey(cursor)]) cursor.setDate(cursor.getDate()-1);
+  while(map[dayKey(cursor)]){ streak++; cursor.setDate(cursor.getDate()-1); }
+  return streak;
+}
+const DOW=['dom','lun','mar','mi\u00e9','jue','vie','s\u00e1b'];
+function last7(){
+  const map=reviewsByDay();
+  const days=[];
+  for(let i=6;i>=0;i--){
+    const d=new Date(); d.setDate(d.getDate()-i);
+    days.push({label: i===0?'Hoy':DOW[d.getDay()], val: map[dayKey(d)]||0});
   }
-  ef = Math.max(1.3, ef + (0.1 - (5-qMap)*(0.08+(5-qMap)*0.02)));
-  if(quality === 1) interval = Math.max(1, Math.round(interval*0.5)) || 1;
-  if(quality === 0) interval = 0;
-
-  const due = new Date();
-  if(interval === 0){ due.setMinutes(due.getMinutes()+10); }
-  else { due.setDate(due.getDate() + interval); }
-
-  return {ef, interval, reps, due: due.toISOString()};
+  return days;
+}
+function aggregateBuckets(){
+  const buckets={nvo:0,ahora:0,'24h':0,manana:0,sem:0,futuro:0};
+  DECKS.forEach(id=>{ cardsForLevel(id).forEach(c=>{ buckets[bucketFor(getProgress(c.id))]++; }); });
+  return buckets;
+}
+function formatDuration(ms){
+  const totalSec=Math.round(ms/1000);
+  const h=Math.floor(totalSec/3600), m=Math.floor((totalSec%3600)/60), s=totalSec%60;
+  return (h?h+'h ':'')+(m?m+'m ':'')+s+'s';
 }
 
-function previewIntervals(entry){
-  const opts = [0,1,2,3].map(q => schedule(entry, q));
-  const fmt = (r,q) => {
-    if(q===0) return '<1d';
-    const d = r.interval;
-    return d < 1 ? '<1d' : d+'d';
+const W=[0.40255,1.18385,3.173,15.69105,7.1949,0.5345,1.4604,0.0046,1.54575,0.1192,1.01925,1.9395,0.11,0.29605,2.2698,0.2315,2.9898,0.51655,0.6621];
+const FF=19/81, CC=-0.5;
+function retrievability(t,s){ return Math.pow(1+FF*(t/s), CC); }
+function fsrsInterval(rd,s){ return (s/FF)*(Math.pow(rd,1/CC)-1); }
+function clampD(d){ return Math.min(10,Math.max(1,d)); }
+function s0(g){ return W[g-1]; }
+function d0(g){ return clampD(W[4]-Math.exp(W[5]*(g-1))+1); }
+function deltaD(g){ return -W[6]*(g-3); }
+function difficultyNext(d,g){ const dp=d+deltaD(g)*((10-d)/9); return clampD(W[7]*d0(4)+(1-W[7])*dp); }
+function sSuccess(d,s,r,g){
+  const td=11-d, ts=Math.pow(s,-W[9]), tr=Math.exp(W[10]*(1-r))-1;
+  const h=g===2?W[15]:1, b=g===4?W[16]:1, c=Math.exp(W[8]);
+  return s*(1+td*ts*tr*h*b*c);
+}
+function sFail(d,s,r){
+  const df=Math.pow(d,-W[12]), sf=Math.pow(s+1,W[13])-1, rf=Math.exp(W[14]*(1-r));
+  return Math.min(W[11]*df*sf*rf, s);
+}
+function stabilityNext(d,s,r,g){ return g===1? sFail(d,s,r) : sSuccess(d,s,r,g); }
+
+function computeNext(prog, grade, retention){
+  const now=new Date();
+  let s,d;
+  if(!prog){ s=s0(grade); d=d0(grade); }
+  else{
+    const elapsed=Math.max(0,(now-new Date(prog.lastReview))/86400000);
+    const r=retrievability(elapsed, prog.stability);
+    s=stabilityNext(prog.difficulty, prog.stability, r, grade);
+    d=difficultyNext(prog.difficulty, grade);
+  }
+  let due;
+  if(grade===1){ due=new Date(now.getTime()+10*60000); }
+  else { const days=Math.max(1,Math.round(fsrsInterval(retention,s))); due=new Date(now.getTime()+days*86400000); }
+  return {stability:s, difficulty:d, due, reps:(prog?prog.reps:0)+1, lapses:(prog?prog.lapses:0)+(grade===1?1:0)};
+}
+
+function previewLabel(prog, retention, grade){
+  const now=new Date();
+  let s;
+  if(!prog){ s=s0(grade); }
+  else{
+    const elapsed=Math.max(0,(now-new Date(prog.lastReview))/86400000);
+    const r=retrievability(elapsed, prog.stability);
+    s=stabilityNext(prog.difficulty, prog.stability, r, grade);
+  }
+  if(grade===1) return '10min';
+  const days=Math.max(1,Math.round(fsrsInterval(retention,s)));
+  if(days<30) return days+'d';
+  if(days<365) return Math.round(days/30)+'m';
+  return Math.round(days/365)+'a';
+}
+
+function bucketFor(prog){
+  if(!prog) return 'nvo';
+  const diffH=(new Date(prog.due)-new Date())/3600000;
+  if(diffH<=0) return 'ahora';
+  if(diffH<=24) return '24h';
+  if(diffH<=48) return 'manana';
+  if(diffH<=24*7) return 'sem';
+  return 'futuro';
+}
+
+function parseCSV(text){
+  const rows=[]; let row=[]; let field=''; let q=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(q){ if(c==='"'){ if(text[i+1]==='"'){field+='"';i++;} else q=false; } else field+=c; }
+    else{
+      if(c==='"') q=true;
+      else if(c===','){ row.push(field); field=''; }
+      else if(c==='\n'){ row.push(field); rows.push(row); row=[]; field=''; }
+      else if(c!=='\r') field+=c;
+    }
+  }
+  if(field!==''||row.length){ row.push(field); rows.push(row); }
+  return rows;
+}
+const HEADER_ALIASES={german:'german',deutsch:'german',english:'english',ingles:'english',wordtype:'wordType',tipo:'wordType',
+  topic:'topic',tema:'topic',gender:'gender',articulo:'gender',genero:'gender',plural:'plural',
+  example:'example',ejemplo:'example',beispiel:'example',notes:'notes',notas:'notes',level:'level',nivel:'level'};
+function normHeader(h){
+  const k=h.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  return HEADER_ALIASES[k]||null;
+}
+function normalizeGermanField(str){
+  let s=(str||'').trim();
+  const m=s.match(/^(der|die|das)\s+/i);
+  let gender=null;
+  if(m){ gender=m[1].toLowerCase(); s=s.slice(m[0].length); }
+  return {german:s, gender};
+}
+function importCSV(text, forceLevel){
+  const rows=parseCSV(text).filter(r=>r.some(c=>c.trim()!==''));
+  if(!rows.length) return {added:0,skipped:0,invalid:0};
+  const headers=rows[0].map(normHeader);
+  const custom=loadJSON(CUSTOM_KEY,[]);
+  const existing=allCards();
+  let added=0, skipped=0, invalid=0;
+  for(let i=1;i<rows.length;i++){
+    const r=rows[i]; const obj={};
+    headers.forEach((h,idx)=>{ if(h) obj[h]=(r[idx]||'').trim(); });
+    const level=forceLevel || obj.level;
+    if(!level || DECKS.indexOf(level)===-1){ invalid++; continue; }
+    if(!obj.german){ invalid++; continue; }
+    const norm=normalizeGermanField(obj.german);
+    const gender=obj.gender||norm.gender||null;
+    const dup=existing.concat(custom).some(c=>c.level===level && c.german.trim().toLowerCase()===norm.german.toLowerCase());
+    if(dup){ skipped++; continue; }
+    custom.push({id:'custom-'+level+'-'+Date.now()+'-'+i, german:norm.german, english:obj.english||'', wordType:obj.wordType||'other',
+      level, topic:obj.topic||'', gender, example:obj.example||'', notes:obj.notes||''});
+    added++;
+  }
+  saveJSON(CUSTOM_KEY, custom);
+  return {added,skipped,invalid};
+}
+function triggerImport(forceLevel){
+  const input=document.createElement('input');
+  input.type='file'; input.accept='.csv,text/csv';
+  input.onchange=e=>{
+    const file=e.target.files[0]; if(!file) return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      const res=importCSV(ev.target.result, forceLevel);
+      showToast('Importadas '+res.added+' \u00b7 Duplicadas '+res.skipped+' \u00b7 Inv\u00e1lidas '+res.invalid);
+      if(state.screen==='deck') renderDeck(state.deckId); else renderMazos();
+    };
+    reader.readAsText(file);
   };
-  return {
-    again: fmt(opts[0],0), hard: fmt(opts[1],1), good: fmt(opts[2],2), easy: fmt(opts[3],3)
-  };
+  input.click();
 }
 
-/* ---------- App state ---------- */
-let progress = loadProgress();
-let stats = loadStats();
-let currentLevel = 'all';
-let queue = [];
-let currentCard = null;
-let flipped = false;
+const content=document.getElementById('content');
+const topTitle=document.getElementById('topTitle');
+const backBtn=document.getElementById('backBtn');
+const plusBtn=document.getElementById('plusBtn');
+let state={screen:'mazos', deckId:null};
 
-const LEVELS = [
-  {id:'all', label:'📚 Todo'},
-  {id:'A1', label:'🟢 A1'},
-  {id:'A2', label:'🟡 A2'},
-  {id:'B1.1', label:'🔵 B1.1'},
-  {id:'B1.2', label:'🩵 B1.2'},
-];
-
-function levelCards(levelId){
-  if(levelId === 'all') return CARDS;
-  return CARDS.filter(c => c.level === levelId);
+function showToast(msg){
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2600);
 }
 
-function isDue(card){
-  const p = progress[card.id];
-  if(!p) return true;
-  return new Date(p.due) <= new Date();
+function openSheet(title, html, onDone){
+  document.getElementById('sheetTitle').textContent=title;
+  document.getElementById('sheetBody').innerHTML=html;
+  document.getElementById('sheetBg').classList.add('show');
+  document.getElementById('sheet').classList.add('show');
+  document.getElementById('sheetDone').onclick=()=>{ closeSheet(); if(onDone) onDone(); };
+  document.getElementById('sheetBg').onclick=closeSheet;
 }
+function closeSheet(){ document.getElementById('sheetBg').classList.remove('show'); document.getElementById('sheet').classList.remove('show'); }
 
-function buildQueue(){
-  const pool = levelCards(currentLevel);
-  queue = pool.filter(isDue).sort((a,b)=>{
-    const da = progress[a.id] ? new Date(progress[a.id].due) : new Date(0);
-    const db = progress[b.id] ? new Date(progress[b.id].due) : new Date(0);
-    return da - db;
+function openPicker(title, options, current, onSelect){
+  let html=options.map(o=>'<div class="sheet-opt" data-v="'+o.value+'"><span>'+o.label+'</span><span class="chk">'+(o.value===current?'\u2713':'')+'</span></div>').join('');
+  openSheet(title, html);
+  document.querySelectorAll('.sheet-opt').forEach(el=>{
+    el.onclick=()=>{ onSelect(el.dataset.v); closeSheet(); };
   });
 }
 
-function renderDrawers(){
-  const el = document.getElementById('drawers');
-  el.innerHTML = '';
-  LEVELS.forEach(lv=>{
-    const due = levelCards(lv.id).filter(isDue).length;
-    const btn = document.createElement('div');
-    btn.className = 'drawer-tab' + (lv.id===currentLevel ? ' active':'');
-    btn.innerHTML = lv.label + (due>0 ? `<span class="count">${due}</span>` : '');
-    btn.onclick = ()=>{ currentLevel = lv.id; buildQueue(); renderDrawers(); nextCard(); renderStats(); };
-    el.appendChild(btn);
+function renderMazos(){
+  state.screen='mazos'; state.deckId=null;
+  topTitle.textContent='Mazos'; backBtn.style.display='none'; plusBtn.style.display='block';
+  plusBtn.onclick=()=>triggerImport(null);
+  let h='<div class="sub-label">Deutsch</div>';
+  DECKS.forEach(id=>{
+    const cards=cardsForLevel(id);
+    let pend=0, nvo=0;
+    cards.forEach(c=>{ const b=bucketFor(getProgress(c.id)); if(b==='ahora')pend++; if(b==='nvo')nvo++; });
+    h+='<div class="deck-row" data-id="'+id+'"><div><div class="name">'+id+'</div><div class="sub">'+cards.length+' tarjetas</div></div>'+
+       (pend?'<span class="badge pend">'+pend+' pend.</span>':(nvo?'<span class="badge nvo">'+nvo+' nuevo</span>':''))+'</div>';
   });
+  content.innerHTML=h;
+  document.querySelectorAll('.deck-row').forEach(el=>el.onclick=()=>renderDeck(el.dataset.id));
 }
 
+function estMinutes(n){ return Math.max(1, Math.round(n*8/60)); }
+
+function renderDeck(id){
+  state.screen='deck'; state.deckId=id;
+  topTitle.textContent=id; backBtn.style.display='block'; plusBtn.style.display='none';
+  backBtn.onclick=renderMazos;
+  const cards=cardsForLevel(id);
+  const buckets={nvo:0,ahora:0,'24h':0,manana:0,sem:0,futuro:0};
+  cards.forEach(c=>{ buckets[bucketFor(getProgress(c.id))]++; });
+  const maxB=Math.max(1,...Object.values(buckets));
+  const order=[['nvo','Nvo','--purple'],['ahora','Ahora','--red'],['24h','<24h','--lightred'],['manana','Ma\u00f1ana','--ochre'],['sem','<1sem','--blue'],['futuro','Futuro','--moss']];
+  let h='<div class="hist">'+order.map(o=>{
+    const v=buckets[o[0]]; const hpx=Math.max(3,Math.round((v/maxB)*80));
+    return '<div class="bar-wrap"><span class="val">'+v+'</span><div class="bar" style="height:'+hpx+'px;background:var('+o[2]+');"></div><span class="lbl">'+o[1]+'</span></div>';
+  }).join('')+'</div>';
+
+  const s=getSettings(id);
+  const topics=[...new Set(cards.map(c=>c.topic).filter(Boolean))];
+  const selTopics=s.tagFilter&&s.tagFilter.length?s.tagFilter:[];
+  h+=setRow('tag','Etiquetas', selTopics.length? selTopics.length+' seleccionadas':'Ninguno');
+  h+=setRow('copy','Tarjetas por sesi\u00f3n', s.perSession==='all'?'Todo':s.perSession);
+  h+=setRow('typography','Tama\u00f1o de fuente', s.fontSize+'px');
+  h+=setRow('clock','Temporizador de volteo autom\u00e1tico', s.autoFlip? s.autoFlip+'s':'Apagado');
+  h+=setRow('shuffle','Modo de repaso', {fsrs:'FSRS',clasico:'Cl\u00e1sico',aleatorio:'Aleatorio',creacion:'En orden de creaci\u00f3n'}[s.reviewMode]);
+  h+=setRow('brain','Retenci\u00f3n FSRS', {0.85:'Ligero 85%',0.9:'Equilibrado 90%',0.95:'Intensivo 95%'}[s.retention]);
+  h+=setRow('refresh','Orientaci\u00f3n de la tarjeta', {normal:'Normal',invertido:'Invertido',mixto:'Mixto'}[s.orientation]);
+  h+='<div class="set-row" id="stabRow"><i class="ti ti-arrow-bar-to-down"></i><span class="lbl">Estabilizaci\u00f3n al voltear</span><div class="toggle '+(s.stabilizeOnFlip?'on':'')+'" id="stabToggle"><div class="knob"></div></div></div>';
+  h+=setRow('upload','Importar tarjetas a este mazo', '');
+
+  const due=cards.filter(c=>{const b=bucketFor(getProgress(c.id)); return b==='ahora'||b==='nvo';});
+  h+='<div class="sticky-bottom"><div><div class="go"><i class="ti ti-player-play"></i>Repasar</div><div class="est">Tiempo estimado '+estMinutes(due.length)+' min</div></div><span class="count">'+due.length+'</span></div>';
+
+  content.innerHTML=h;
+
+  document.querySelectorAll('.set-row').forEach(el=>{
+    el.onclick=()=>{
+      const label=el.dataset.label;
+      if(label==='Etiquetas') openTagPicker(id, topics, selTopics);
+      else if(label==='Tarjetas por sesi\u00f3n') openPicker('Tarjetas por sesi\u00f3n',[10,20,30,50,100,'all'].map(v=>({label:v==='all'?'Todo':String(v),value:String(v)})), String(s.perSession), v=>{setSetting(id,'perSession', v==='all'?'all':parseInt(v)); renderDeck(id);});
+      else if(label==='Tama\u00f1o de fuente') openPicker('Tama\u00f1o de fuente',[18,20,22,24,26,28,32].map(v=>({label:v+'px',value:String(v)})), String(s.fontSize), v=>{setSetting(id,'fontSize',parseInt(v)); renderDeck(id);});
+      else if(label==='Temporizador de volteo autom\u00e1tico') openPicker('Temporizador de volteo autom\u00e1tico',[0,5,10,15,20].map(v=>({label:v?v+'s':'Apagado',value:String(v)})), String(s.autoFlip), v=>{setSetting(id,'autoFlip',parseInt(v)); renderDeck(id);});
+      else if(label==='Modo de repaso') openPicker('Modo de repaso',[['fsrs','FSRS'],['clasico','Cl\u00e1sico'],['aleatorio','Aleatorio'],['creacion','En orden de creaci\u00f3n']].map(v=>({label:v[1],value:v[0]})), s.reviewMode, v=>{setSetting(id,'reviewMode',v); renderDeck(id);});
+      else if(label==='Retenci\u00f3n FSRS') openPicker('Retenci\u00f3n FSRS',[['0.85','Ligero (85%)'],['0.9','Equilibrado (90%)'],['0.95','Intensivo (95%)']].map(v=>({label:v[1],value:v[0]})), String(s.retention), v=>{setSetting(id,'retention',parseFloat(v)); renderDeck(id);});
+      else if(label==='Orientaci\u00f3n de la tarjeta') openPicker('Orientaci\u00f3n de la tarjeta',[['normal','Normal'],['invertido','Invertido'],['mixto','Mixto']].map(v=>({label:v[1],value:v[0]})), s.orientation, v=>{setSetting(id,'orientation',v); renderDeck(id);});
+      else if(label==='Importar tarjetas a este mazo') triggerImport(id);
+    };
+  });
+  document.getElementById('stabToggle').onclick=(e)=>{ e.stopPropagation(); setSetting(id,'stabilizeOnFlip', !s.stabilizeOnFlip); renderDeck(id); };
+  content.querySelector('.sticky-bottom').onclick=()=>startStudy(id);
+}
+function setRow(icon,label,val){
+  return '<div class="set-row" data-label="'+label+'"><i class="ti ti-'+icon+'"></i><span class="lbl">'+label+'</span><span class="val">'+val+'</span><i class="ti ti-chevron-right chev"></i></div>';
+}
+function openMultiPicker(title, options, selected, onDone){
+  let sel=selected.slice();
+  let html=options.map(t=>'<div class="sheet-opt" data-v="'+t+'"><span>'+t+'</span><span class="chk">'+(sel.indexOf(t)>=0?'\u2713':'')+'</span></div>').join('');
+  openSheet(title, html, ()=>onDone(sel));
+  document.querySelectorAll('.sheet-opt').forEach(el=>{
+    el.onclick=()=>{
+      const v=el.dataset.v; const i=sel.indexOf(v);
+      if(i>=0) sel.splice(i,1); else sel.push(v);
+      el.querySelector('.chk').textContent= sel.indexOf(v)>=0?'\u2713':'';
+    };
+  });
+}
+function openTagPicker(deckId, topics, selected){
+  openMultiPicker('Etiquetas', topics, selected, sel=>{ setSetting(deckId,'tagFilter',sel); renderDeck(deckId); });
+}
+
+function renderStub(title, msg){
+  topTitle.textContent=title; backBtn.style.display='none'; plusBtn.style.display='none';
+  content.innerHTML='<div class="empty-msg"><div class="big">Pr\u00f3ximamente</div><div class="small">'+msg+'</div></div>';
+}
+
+/* ---------- Estadisticas ---------- */
+function sectionLabel(t){ return '<div class="sub-label">'+t+'</div>'; }
+function metricRow(pairs){
+  return '<div class="metric-row">'+pairs.map(p=>{
+    const isGoal=p[0]==='Objetivo diario';
+    return '<div class="metric-card"'+(isGoal?' data-goal-card':'')+'><div class="lbl">'+p[0]+'</div><div class="val">'+p[1]+'</div></div>';
+  }).join('')+'</div>';
+}
+function barChart(items){
+  const mx=Math.max(1,...items.map(x=>x[1]));
+  return '<div class="hist">'+items.map(x=>{
+    const hpx=Math.max(3,Math.round((x[1]/mx)*80));
+    return '<div class="bar-wrap"><span class="val">'+x[1]+'</span><div class="bar" style="height:'+hpx+'px;background:var('+x[2]+');"></div><span class="lbl">'+x[0]+'</span></div>';
+  }).join('')+'</div>';
+}
 function renderStats(){
-  const today = todayStr();
-  if(stats.doneDate !== today){ stats.doneToday = 0; }
-  document.getElementById('statDue').textContent = queue.length;
-  document.getElementById('statDone').textContent = stats.doneToday;
-  document.getElementById('statStreak').textContent = stats.streak;
-  document.getElementById('statTotal').textContent = levelCards(currentLevel).length;
+  state.screen='stats'; state.deckId=null;
+  topTitle.textContent='Estad\u00edsticas'; backBtn.style.display='none'; plusBtn.style.display='none';
+  const log=loadJSON(LOG_KEY,[]);
+  const map=reviewsByDay();
+  const goal=loadJSON('dk_goal_v1',50);
+  const todayCount=map[dayKey(new Date())]||0;
+  const last7d=last7();
+  const sum7=last7d.reduce((a,b)=>a+b.val,0);
+  let sum30=0; for(let i=0;i<30;i++){ const d=new Date(); d.setDate(d.getDate()-i); sum30+=map[dayKey(d)]||0; }
+  const avgPerDay=Math.round(sum30/30);
+  const streak=computeStreak(map);
+  let daysWithGoal30=0; for(let i=0;i<30;i++){ const d=new Date(); d.setDate(d.getDate()-i); if((map[dayKey(d)]||0)>=goal) daysWithGoal30++; }
+  const activeDays=Object.keys(map).length;
+  let bestDay=null,bestVal=0;
+  Object.keys(map).forEach(k=>{ if(map[k]>bestVal){bestVal=map[k]; bestDay=k;} });
 
-  const totalPool = levelCards(currentLevel).length;
-  const donePct = totalPool ? Math.min(100, Math.round((stats.doneToday / Math.max(1, levelCards(currentLevel).filter(isDue).length + stats.doneToday)) * 100)) : 0;
-  document.getElementById('progressFill').style.width = donePct + '%';
+  const allCardsArr=allCards();
+  const matureCount=allCardsArr.filter(c=>{ const p=getProgress(c.id); return p && p.stability>=21; }).length;
+  const newCount=allCardsArr.filter(c=>!getProgress(c.id)).length;
+
+  let totalTime=0, gradeCounts=[0,0,0,0];
+  log.forEach(e=>{ totalTime+=(e.elapsedMs||0); gradeCounts[e.grade-1]++; });
+  const totalReviews=log.length;
+  const hitRate=totalReviews? Math.round(100*(totalReviews-gradeCounts[0])/totalReviews):0;
+  const avgTime=totalReviews? Math.round(totalTime/totalReviews/1000):0;
+
+  const buckets=aggregateBuckets();
+  const bOrder=[['Nvo',buckets.nvo,'--purple'],['Ahora',buckets.ahora,'--red'],['<24h',buckets['24h'],'--lightred'],['Ma\u00f1ana',buckets.manana,'--ochre'],['<1sem',buckets.sem,'--blue'],['Futuro',buckets.futuro,'--moss']];
+
+  let h='';
+  h+=sectionLabel('Progreso diario');
+  h+=metricRow([['Repasos de hoy', todayCount+'/'+goal],['Prom. por d\u00eda', avgPerDay]]);
+  h+=metricRow([['\u00daltimos 7 d\u00edas', sum7],['\u00daltimos 30 d\u00edas', sum30]]);
+  h+=barChart(last7d.map(x=>[x.label,x.val,'--blue']));
+
+  h+=sectionLabel('Ritmo de estudio');
+  h+=metricRow([['Objetivo diario', goal],['Racha (d\u00edas)', streak]]);
+  h+=metricRow([['D\u00edas con objetivo (30d)', daysWithGoal30+'/30'],['D\u00edas activos', activeDays]]);
+  h+=metricRow([['Mejor d\u00eda', bestDay? bestDay+' \u00b7 '+bestVal : '\u2014']]);
+
+  h+=sectionLabel('Biblioteca');
+  h+=metricRow([['Mazos', DECKS.length],['Tarjetas', allCardsArr.length]]);
+  h+=metricRow([['Nuevas', newCount],['Maduras (>21d)', matureCount]]);
+
+  h+=sectionLabel('Calidad de respuesta');
+  h+=metricRow([['Tasa de aciertos', hitRate+'%'],['Repasos totales', totalReviews]]);
+  h+=metricRow([['Tiempo total', formatDuration(totalTime)],['Tiempo prom.', avgTime+'s']]);
+  h+=barChart([['Falla',gradeCounts[0],'--red'],['Dif\u00edcil',gradeCounts[1],'--ochre'],['Bien',gradeCounts[2],'--teal'],['F\u00e1cil',gradeCounts[3],'--moss']]);
+
+  h+=sectionLabel('Tarjetas pendientes');
+  h+=metricRow([['Pendientes ahora', buckets.ahora],['Nuevo', buckets.nvo]]);
+  h+=barChart(bOrder);
+  h+='<div style="height:14px;"></div>';
+
+  content.innerHTML=h;
+  const goalCard=content.querySelector('[data-goal-card]');
+  if(goalCard) goalCard.onclick=()=>{
+    openPicker('Objetivo diario de estudio', [20,50,100,150,200,300].map(v=>({label:String(v),value:String(v)})), String(goal), v=>{ saveJSON('dk_goal_v1', parseInt(v)); renderStats(); });
+  };
 }
 
-function wordTypeLabel(c){
-  const map = {noun:'Sustantivo', verb:'Verbo', adjective:'Adjetivo', adverb:'Adverbio', preposition:'Preposición', phrase:'Frase', other:'Otro'};
-  return (map[c.wordType] || c.wordType || '').toUpperCase();
+/* ---------- OmniRepaso ---------- */
+const OMNI_META_KEY='dk_omni_meta_v1';
+function getOmniMeta(){ return Object.assign({period:'all', decks:DECKS.slice()}, loadJSON(OMNI_META_KEY,{})); }
+function setOmniMeta(m){ saveJSON(OMNI_META_KEY, m); }
+function lastStudiedDate(deckId){
+  const log=loadJSON(LOG_KEY,[]);
+  let max=null;
+  log.forEach(e=>{ if(e.level===deckId){ const d=new Date(e.ts); if(!max||d>max) max=d; } });
+  return max;
+}
+function decksForPeriod(period){
+  if(period==='all') return DECKS.slice();
+  const now=new Date(); const days= period==='week'?7:period==='month'?30:90;
+  const cutoff=new Date(now.getTime()-days*86400000);
+  return DECKS.filter(id=>{ const d=lastStudiedDate(id); return d && d>=cutoff; });
+}
+function buildOmniPool(meta, s){
+  let pool=[];
+  meta.decks.forEach(id=>{
+    cardsForLevel(id).forEach(c=>{
+      const b=bucketFor(getProgress(c.id));
+      if(b==='ahora'||b==='nvo'){
+        if(!(s.tagFilter&&s.tagFilter.length) || s.tagFilter.indexOf(c.topic)>=0) pool.push(c);
+      }
+    });
+  });
+  return pool;
+}
+function renderOmni(){
+  state.screen='omni'; state.deckId=null;
+  topTitle.textContent='OmniRepaso'; backBtn.style.display='none'; plusBtn.style.display='none';
+  let meta=getOmniMeta();
+  const avail=decksForPeriod(meta.period);
+  meta.decks=meta.decks.filter(d=>avail.indexOf(d)>=0);
+  if(!meta.decks.length) meta.decks=avail.slice();
+  setOmniMeta(meta);
+
+  const s=getSettings('omni');
+  const pool=buildOmniPool(meta,s);
+  const topics=[...new Set(meta.decks.flatMap(id=>cardsForLevel(id).map(c=>c.topic)).filter(Boolean))];
+  const selTopics=s.tagFilter&&s.tagFilter.length?s.tagFilter:[];
+  const periodLbl={week:'Semana pasada',month:'Mes pasado','3months':'\u00daltimos 3 meses',all:'Todo'}[meta.period];
+
+  let h=setRow('calendar','Per\u00edodo', periodLbl);
+  h+=setRow('cards','Mazos', meta.decks.length+'/'+DECKS.length);
+  h+=setRow('tag','Etiquetas', selTopics.length? selTopics.length+' seleccionadas':'Ninguno');
+  h+=setRow('copy','Tarjetas por sesi\u00f3n', s.perSession==='all'?'Todo':s.perSession);
+  h+=setRow('typography','Tama\u00f1o de fuente', s.fontSize+'px');
+  h+=setRow('clock','Temporizador de volteo autom\u00e1tico', s.autoFlip? s.autoFlip+'s':'Apagado');
+  h+=setRow('shuffle','Modo de repaso', {fsrs:'FSRS',clasico:'Cl\u00e1sico',aleatorio:'Aleatorio',creacion:'En orden de creaci\u00f3n'}[s.reviewMode]);
+  h+=setRow('brain','Retenci\u00f3n FSRS', {0.85:'Ligero 85%',0.9:'Equilibrado 90%',0.95:'Intensivo 95%'}[s.retention]);
+  h+=setRow('refresh','Orientaci\u00f3n de la tarjeta', {normal:'Normal',invertido:'Invertido',mixto:'Mixto'}[s.orientation]);
+  h+='<div class="set-row" id="omniStabRow"><i class="ti ti-arrow-bar-to-down"></i><span class="lbl">Estabilizaci\u00f3n al voltear</span><div class="toggle '+(s.stabilizeOnFlip?'on':'')+'" id="omniStabToggle"><div class="knob"></div></div></div>';
+  h+='<div class="sticky-bottom"><div><div class="go"><i class="ti ti-player-play"></i>Repasar</div><div class="est">Tiempo estimado '+estMinutes(pool.length)+' min</div></div><span class="count">'+pool.length+'</span></div>';
+
+  content.innerHTML=h;
+  document.querySelectorAll('.set-row').forEach(el=>{
+    el.onclick=()=>{
+      const label=el.dataset.label;
+      if(label==='Per\u00edodo') openPicker('Per\u00edodo',[['week','Semana pasada'],['month','Mes pasado'],['3months','\u00daltimos 3 meses'],['all','Todo']].map(v=>({label:v[1],value:v[0]})), meta.period, v=>{ meta.period=v; setOmniMeta(meta); renderOmni(); });
+      else if(label==='Mazos') openMultiPicker('Mazos', avail, meta.decks, sel=>{ meta.decks=sel.length?sel:avail.slice(); setOmniMeta(meta); renderOmni(); });
+      else if(label==='Etiquetas') openMultiPicker('Etiquetas', topics, selTopics, sel=>{ setSetting('omni','tagFilter',sel); renderOmni(); });
+      else if(label==='Tarjetas por sesi\u00f3n') openPicker('Tarjetas por sesi\u00f3n',[10,20,30,50,100,'all'].map(v=>({label:v==='all'?'Todo':String(v),value:String(v)})), String(s.perSession), v=>{setSetting('omni','perSession', v==='all'?'all':parseInt(v)); renderOmni();});
+      else if(label==='Tama\u00f1o de fuente') openPicker('Tama\u00f1o de fuente',[18,20,22,24,26,28,32].map(v=>({label:v+'px',value:String(v)})), String(s.fontSize), v=>{setSetting('omni','fontSize',parseInt(v)); renderOmni();});
+      else if(label==='Temporizador de volteo autom\u00e1tico') openPicker('Temporizador de volteo autom\u00e1tico',[0,5,10,15,20].map(v=>({label:v?v+'s':'Apagado',value:String(v)})), String(s.autoFlip), v=>{setSetting('omni','autoFlip',parseInt(v)); renderOmni();});
+      else if(label==='Modo de repaso') openPicker('Modo de repaso',[['fsrs','FSRS'],['clasico','Cl\u00e1sico'],['aleatorio','Aleatorio'],['creacion','En orden de creaci\u00f3n']].map(v=>({label:v[1],value:v[0]})), s.reviewMode, v=>{setSetting('omni','reviewMode',v); renderOmni();});
+      else if(label==='Retenci\u00f3n FSRS') openPicker('Retenci\u00f3n FSRS',[['0.85','Ligero (85%)'],['0.9','Equilibrado (90%)'],['0.95','Intensivo (95%)']].map(v=>({label:v[1],value:v[0]})), String(s.retention), v=>{setSetting('omni','retention',parseFloat(v)); renderOmni();});
+      else if(label==='Orientaci\u00f3n de la tarjeta') openPicker('Orientaci\u00f3n de la tarjeta',[['normal','Normal'],['invertido','Invertido'],['mixto','Mixto']].map(v=>({label:v[1],value:v[0]})), s.orientation, v=>{setSetting('omni','orientation',v); renderOmni();});
+    };
+  });
+  document.getElementById('omniStabToggle').onclick=(e)=>{ e.stopPropagation(); setSetting('omni','stabilizeOnFlip', !s.stabilizeOnFlip); renderOmni(); };
+  content.querySelector('.sticky-bottom').onclick=()=>{
+    const finalPool=buildOmniPool(meta,s);
+    startStudySession(finalPool, s, {type:'omni'});
+  };
 }
 
-function renderCard(){
-  const stage = document.getElementById('studyArea');
-  const empty = document.getElementById('emptyState');
-  if(!currentCard){
-    stage.style.display = 'none';
-    empty.style.display = 'block';
+let studyQueue=[], studyIdx=0, studyReturn=null, studySettings=null, flipped=false, autoFlipTimer=null, studyDone=0, cardShownAt=0;
+
+function startStudy(deckId){
+  const cards=cardsForLevel(deckId);
+  const s=getSettings(deckId);
+  const pool=cards.filter(c=>{
+    const b=bucketFor(getProgress(c.id));
+    if(!(b==='ahora'||b==='nvo')) return false;
+    if(s.tagFilter&&s.tagFilter.length) return s.tagFilter.indexOf(c.topic)>=0;
+    return true;
+  });
+  startStudySession(pool, s, {type:'deck', id:deckId});
+}
+
+function startStudySession(pool, s, returnTo){
+  studySettings=s; studyReturn=returnTo; studyDone=0;
+  if(s.reviewMode==='aleatorio') pool.sort(()=>Math.random()-0.5);
+  else if(s.reviewMode==='creacion') pool.sort((a,b)=>a.id.localeCompare(b.id));
+  else pool.sort((a,b)=>{
+    const pa=getProgress(a.id), pb=getProgress(b.id);
+    const da=pa?new Date(pa.due):new Date(0), db=pb?new Date(pb.due):new Date(0);
+    return da-db;
+  });
+  if(s.perSession!=='all') pool=pool.slice(0, s.perSession);
+  studyQueue=pool; studyIdx=0;
+  document.getElementById('studyOverlay').classList.add('show');
+  renderStudyCard();
+}
+document.getElementById('exitStudy').onclick=()=>{
+  clearTimeout(autoFlipTimer);
+  document.getElementById('studyOverlay').classList.remove('show');
+  if(studyReturn){
+    if(studyReturn.type==='deck') renderDeck(studyReturn.id);
+    else if(studyReturn.type==='omni') renderOmni();
+  }
+};
+
+function renderStudyCard(){
+  clearTimeout(autoFlipTimer);
+  document.getElementById('studyCnt').textContent=(studyIdx)+' / '+studyQueue.length;
+  const body=document.getElementById('studyBody');
+  if(studyIdx>=studyQueue.length){
+    body.innerHTML='<div class="session-done"><div class="big">Sesi\u00f3n completa</div><div style="font-size:12px;color:#c9a876;">Hiciste '+studyDone+' tarjetas.</div></div>';
+    document.getElementById('ratings').classList.remove('show');
     return;
   }
-  stage.style.display = 'block';
-  empty.style.display = 'none';
+  const c=studyQueue[studyIdx];
+  let orient=studySettings.orientation;
+  if(orient==='mixto') orient=Math.random()<0.5?'normal':'invertido';
+  const showGermanFirst = orient!=='invertido';
+  const article=c.gender==='der'?'der ':c.gender==='die'?'die ':c.gender==='das'?'das ':'';
+  const fz=studySettings.fontSize;
+  const typeLbl={noun:'Sustantivo',verb:'Verbo',adjective:'Adjetivo',adverb:'Adverbio',preposition:'Preposici\u00f3n',phrase:'Frase',other:'Otro'}[c.wordType]||(c.wordType||'').toUpperCase();
+  const frontHTML = showGermanFirst
+    ? '<div class="wtype">'+typeLbl+'</div><div class="mainword" style="font-size:'+fz+'px;">'+(article?'<span class="art">'+article+'</span>':'')+c.german+'</div><div class="topictag">'+(c.topic||'')+'</div>'
+    : '<div class="wtype">TRADUCCI\u00d3N</div><div class="mainword" style="font-size:'+fz+'px;">'+c.english+'</div>';
+  const backHTML = showGermanFirst
+    ? '<div class="wtype">TRADUCCI\u00d3N</div><div class="mainword" style="font-size:'+Math.round(fz*0.85)+'px;">'+c.english+'</div><div class="exsent">'+(c.example||'')+'</div>'
+    : '<div class="wtype">'+typeLbl+'</div><div class="mainword" style="font-size:'+Math.round(fz*0.85)+'px;">'+(article?'<span class="art">'+article+'</span>':'')+c.german+'</div><div class="exsent">'+(c.example||'')+'</div>';
 
-  const c = currentCard;
-  const article = c.gender === 'der' ? 'der ' : c.gender === 'die' ? 'die ' : c.gender === 'das' ? 'das ' : '';
-  document.getElementById('typeFront').textContent = wordTypeLabel(c);
-  document.getElementById('germanWord').innerHTML = article ? `<span class="article">${article}</span>${c.german}` : c.german;
-  document.getElementById('topicFront').textContent = c.topic || '';
-  document.getElementById('typeBack').textContent = wordTypeLabel(c);
-  document.getElementById('englishWord').textContent = c.english;
-  document.getElementById('exampleText').textContent = c.example || '';
-
-  const prev = previewIntervals(progress[c.id]);
-  document.getElementById('dAgain').textContent = prev.again;
-  document.getElementById('dHard').textContent = prev.hard;
-  document.getElementById('dGood').textContent = prev.good;
-  document.getElementById('dEasy').textContent = prev.easy;
-
-  flipped = false;
-  document.getElementById('cardFlip').classList.remove('flipped');
+  body.innerHTML='<div class="stage"><div class="card-flip" id="cardFlip">'+
+    '<div class="face front"><div class="holes"><span></span><span></span><span></span><span></span><span></span></div>'+frontHTML+'<div class="taphint">Toca para voltear</div></div>'+
+    '<div class="face back"><div class="holes"><span></span><span></span><span></span><span></span><span></span></div>'+backHTML+'</div>'+
+    '</div></div>';
+  flipped=false;
+  const cf=document.getElementById('cardFlip');
+  cf.addEventListener('click', onCardTap);
   document.getElementById('ratings').classList.remove('show');
-}
 
-function nextCard(){
-  currentCard = queue.length ? queue[0] : null;
-  renderCard();
-}
+  cardShownAt=Date.now();
+  const prog=getProgress(c.id), ret=studySettings.retention;
+  document.getElementById('dAgain').textContent=previewLabel(prog,ret,1);
+  document.getElementById('dHard').textContent=previewLabel(prog,ret,2);
+  document.getElementById('dGood').textContent=previewLabel(prog,ret,3);
+  document.getElementById('dEasy').textContent=previewLabel(prog,ret,4);
 
-function flipCard(){
-  if(!currentCard) return;
-  flipped = !flipped;
+  if(studySettings.autoFlip>0){
+    autoFlipTimer=setTimeout(()=>{ if(!flipped) doFlip(); }, studySettings.autoFlip*1000);
+  }
+}
+function onCardTap(){
+  if(flipped && studySettings.stabilizeOnFlip) return;
+  doFlip();
+}
+function doFlip(){
+  clearTimeout(autoFlipTimer);
+  flipped=!flipped;
   document.getElementById('cardFlip').classList.toggle('flipped', flipped);
   document.getElementById('ratings').classList.toggle('show', flipped);
 }
-
-function rate(quality){
-  if(!currentCard) return;
-  const entry = progress[currentCard.id];
-  const updated = schedule(entry, quality);
-  progress[currentCard.id] = updated;
-  saveProgress(progress);
-
-  const today = todayStr();
-  if(stats.doneDate !== today){
-    stats.streak = stats.lastStudyDate === yesterday(today) ? stats.streak + 1 : 1;
-    stats.doneToday = 0;
-    stats.doneDate = today;
-    stats.lastStudyDate = today;
-  }
-  stats.doneToday += 1;
-  stats.lastStudyDate = today;
-  saveStats(stats);
-
-  queue.shift();
-  if(updated.interval === 0){
-    // re-insert a few cards later for "again"
-    queue.splice(Math.min(queue.length,3), 0, currentCard);
-  }
-  nextCard();
-  renderStats();
-  renderDrawers();
-}
-
-function yesterday(dateStr){
-  const d = new Date(dateStr);
-  d.setDate(d.getDate()-1);
-  return d.toISOString().slice(0,10);
-}
-
-document.getElementById('cardFlip').addEventListener('click', flipCard);
 document.querySelectorAll('.rate-btn').forEach(btn=>{
-  btn.addEventListener('click', (e)=>{
+  btn.addEventListener('click', e=>{
     e.stopPropagation();
-    rate(parseInt(btn.dataset.q));
+    const g=parseInt(btn.dataset.g);
+    const c=studyQueue[studyIdx];
+    const prog=getProgress(c.id);
+    const next=computeNext(prog, g, studySettings.retention);
+    setProgress(c.id, {stability:next.stability, difficulty:next.difficulty, due:next.due.toISOString(), reps:next.reps, lapses:next.lapses, lastReview:new Date().toISOString()});
+    logReview(c.id, c.level, g, Date.now()-cardShownAt);
+    studyDone++;
+    if(g===1) studyQueue.splice(studyIdx+1,0,c);
+    studyIdx++;
+    renderStudyCard();
   });
 });
 
-/* ---------- Init ---------- */
-buildQueue();
-renderDrawers();
-nextCard();
-renderStats();
-
-if('serviceWorker' in navigator){
-  window.addEventListener('load', ()=>{
-    navigator.serviceWorker.register('service-worker.js').catch(()=>{});
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    if(btn.dataset.tab==='mazos') renderMazos();
+    if(btn.dataset.tab==='stats') renderStats();
+    if(btn.dataset.tab==='omni') renderOmni();
   });
+});
+
+renderMazos();
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{ navigator.serviceWorker.register('service-worker.js').catch(()=>{}); });
 }
 </script>
 </body>

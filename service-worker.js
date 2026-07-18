@@ -1,11 +1,12 @@
-const CACHE_NAME = 'deutschkarten-v1';
+const CACHE_NAME = 'deutschkarten-v3';
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
   './cards-data.js',
   './icon-192.png',
-  './icon-512.png'
+  './icon-512.png',
+  'https://cdnjs.cloudflare.com/ajax/libs/tabler-icons/3.44.0/tabler-icons.min.css'
 ];
 
 self.addEventListener('install', (event) => {
