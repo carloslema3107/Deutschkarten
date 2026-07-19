@@ -154,6 +154,7 @@
   .tj-german{font-family:Georgia,serif;font-weight:700;font-size:15px;color:var(--ink);}
   .tj-english{font-size:11px;color:var(--ink-soft);}
   .tj-emoji{font-size:15px;}
+  .tj-tag{font-family:'SF Mono',monospace;font-size:9px;color:var(--ink-soft);border:1px solid var(--line);border-radius:8px;padding:2px 7px;white-space:nowrap;flex:0 0 auto;}
   .tj-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:6px 16px 16px;}
   .tj-card{background:var(--row);border-radius:8px;overflow:hidden;cursor:pointer;}
   .tj-cardbadge{font-family:'SF Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.06em;color:#fff;text-align:center;padding:4px 0;}
@@ -863,9 +864,12 @@ function renderTarjetasResults(deckId){
 }
 function tjListRow(c){
   const art=c.gender?c.gender+' ':'';
+  const meta=cardMetaParts(c);
+  const tag=meta.length ? '<span class="tj-tag" style="'+(meta[0][1]?'color:'+meta[0][1]+';border-color:'+meta[0][1]+';':'')+'">'+meta[0][0]+'</span>' : '';
   return '<div class="tj-row" data-card-id="'+c.id+'"><span class="tj-dot" style="background:'+genderDotColor(c.gender)+';"></span>'+
     '<div class="tj-rowtext"><div class="tj-german">'+(art?'<span class="'+genderClass(c.gender)+'">'+art+'</span>':'')+c.german+'</div>'+
     '<div class="tj-english">'+c.english+'</div></div>'+
+    tag+
     '<span class="tj-emoji">'+topicEmoji(c.topic)+'</span></div>';
 }
 function tjGridCard(c){
