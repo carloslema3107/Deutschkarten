@@ -83,6 +83,10 @@
   .empty-msg .big{font-family:Georgia,serif;font-size:18px;color:var(--ink);margin-bottom:6px;}
   .empty-msg .small{font-size:12px;line-height:1.6;}
 
+  .tj-search{display:flex;align-items:center;gap:8px;margin:10px 16px 0;padding:9px 12px;background:var(--row);border-radius:8px;}
+  .tj-search i{color:var(--ink-soft);font-size:15px;}
+  .tj-search input{flex:1;border:none;background:none;font-size:14px;color:var(--ink);outline:none;}
+  .tj-search input::placeholder{color:var(--ink-soft);}
   .tj-toolbar{display:flex;align-items:center;justify-content:space-between;padding:10px 16px 4px;gap:8px;}
   .tj-viewtoggle{display:flex;gap:4px;background:var(--row);border-radius:6px;padding:2px;}
   .tj-vbtn{border:none;background:none;padding:6px 10px;border-radius:5px;color:var(--ink-soft);cursor:pointer;}
@@ -635,7 +639,7 @@ function setRow(icon,label,val){
 }
 
 /* ---------- Tarjetas browser ---------- */
-let tarjetasView='list', tarjetasWordType=null, tarjetasBucket=null, tarjetasDeckId=null, tarjetasSort='alpha-asc';
+let tarjetasView='list', tarjetasWordType=null, tarjetasBucket=null, tarjetasDeckId=null, tarjetasSort='alpha-asc', tarjetasSearch='';
 function bucketLabel(b){ return {nvo:'Nvo',ahora:'Ahora','24h':'<24h',manana:'Ma\u00f1ana',sem:'<1sem',futuro:'Futuro'}[b]||b; }
 function bucketColorVar(b){ return {nvo:'--purple',ahora:'--red','24h':'--lightred',manana:'--ochre',sem:'--blue',futuro:'--moss'}[b]||'--line'; }
 const SORT_LABELS={'alpha-asc':'Alfab\u00e9tico \u25b2','alpha-desc':'Alfab\u00e9tico \u25bc','created-asc':'Creado \u25b2','created-desc':'Creado \u25bc','review-asc':'\u00daltimo repaso \u25b2','review-desc':'\u00daltimo repaso \u25bc'};
@@ -680,7 +684,7 @@ function caseColor(v){
 
 function renderTarjetas(deckId, opts){
   opts=opts||{};
-  if(deckId!==tarjetasDeckId){ tarjetasDeckId=deckId; tarjetasWordType=null; tarjetasBucket=null; }
+  if(deckId!==tarjetasDeckId){ tarjetasDeckId=deckId; tarjetasWordType=null; tarjetasBucket=null; tarjetasSearch=''; }
   if('bucket' in opts) tarjetasBucket=opts.bucket;
   state.screen='tarjetas'; state.deckId=deckId;
   topTitle.textContent='Tarjetas \u00b7 '+deckName(deckId);
@@ -688,13 +692,10 @@ function renderTarjetas(deckId, opts){
   backBtn.onclick=()=>renderDeck(deckId);
 
   const allInDeck=cardsForLevel(deckId);
-  let cards=allInDeck;
-  if(tarjetasBucket) cards=cards.filter(c=>bucketFor(getProgress(c.id))===tarjetasBucket);
-  if(tarjetasWordType) cards=cards.filter(c=>c.wordType===tarjetasWordType);
-  cards=sortCards(cards, tarjetasSort);
   const wordTypes=[...new Set(allInDeck.map(c=>c.wordType).filter(Boolean))];
 
-  let h='<div class="tj-toolbar"><div class="tj-viewtoggle">'+
+  let h='<div class="tj-search"><i class="ti ti-search"></i><input type="text" id="tjSearch" placeholder="Buscar..." value="'+String(tarjetasSearch).replace(/"/g,'&quot;')+'"></div>';
+  h+='<div class="tj-toolbar"><div class="tj-viewtoggle">'+
     '<button class="tj-vbtn'+(tarjetasView==='list'?' active':'')+'" data-v="list"><i class="ti ti-list"></i></button>'+
     '<button class="tj-vbtn'+(tarjetasView==='grid'?' active':'')+'" data-v="grid"><i class="ti ti-layout-grid"></i></button></div>'+
     '<button class="tj-vbtn" id="sortBtn" style="background:var(--row);"><i class="ti ti-arrows-sort"></i></button>'+
@@ -702,19 +703,12 @@ function renderTarjetas(deckId, opts){
     '</div>';
   h+='<div class="tj-alpha"><span class="tj-letter'+(!tarjetasWordType?' active':'')+'" data-wt="__all__">Todos</span>'+
     wordTypes.map(w=>'<span class="tj-letter'+(tarjetasWordType===w?' active':'')+'" data-wt="'+w+'">'+wordTypeEmoji(w)+' '+(WORDTYPE_LABEL[w]||w)+'</span>').join('')+'</div>';
-
-  if(!cards.length){
-    h+='<div class="empty-msg"><div class="big">Sin tarjetas</div><div class="small">No hay tarjetas con este filtro.</div></div>';
-  } else if(tarjetasView==='list'){
-    h+='<div class="tj-list">'+cards.map(tjListRow).join('')+'</div>';
-  } else {
-    h+='<div class="tj-grid">'+cards.map(tjGridCard).join('')+'</div>';
-  }
+  h+='<div id="tjResults"></div>';
   content.innerHTML=h;
 
-  content.querySelectorAll('.tj-vbtn[data-v]').forEach(b=>b.onclick=()=>{ tarjetasView=b.dataset.v; renderTarjetas(deckId,{}); });
+  content.querySelectorAll('.tj-vbtn[data-v]').forEach(b=>b.onclick=()=>{ tarjetasView=b.dataset.v; renderTarjetasResults(deckId); });
   document.getElementById('sortBtn').onclick=()=>{
-    openPicker('Ordenar por', Object.keys(SORT_LABELS).map(k=>({label:SORT_LABELS[k],value:k})), tarjetasSort, v=>{ tarjetasSort=v; renderTarjetas(deckId,{}); });
+    openPicker('Ordenar por', Object.keys(SORT_LABELS).map(k=>({label:SORT_LABELS[k],value:k})), tarjetasSort, v=>{ tarjetasSort=v; renderTarjetasResults(deckId); });
   };
   const cb=document.getElementById('clearBucket'); if(cb) cb.onclick=()=>{ tarjetasBucket=null; renderTarjetas(deckId,{bucket:null}); };
   content.querySelectorAll('.tj-letter[data-wt]').forEach(el=>el.onclick=()=>{
@@ -722,7 +716,33 @@ function renderTarjetas(deckId, opts){
     tarjetasWordType = (wt==='__all__') ? null : (tarjetasWordType===wt ? null : wt);
     renderTarjetas(deckId,{});
   });
-  content.querySelectorAll('[data-card-id]').forEach(el=>el.onclick=()=>openCardDetail(el.dataset.cardId));
+  const searchInput=document.getElementById('tjSearch');
+  searchInput.oninput=(e)=>{ tarjetasSearch=e.target.value; renderTarjetasResults(deckId); };
+
+  renderTarjetasResults(deckId);
+}
+function renderTarjetasResults(deckId){
+  const allInDeck=cardsForLevel(deckId);
+  let cards=allInDeck;
+  if(tarjetasBucket) cards=cards.filter(c=>bucketFor(getProgress(c.id))===tarjetasBucket);
+  if(tarjetasWordType) cards=cards.filter(c=>c.wordType===tarjetasWordType);
+  if(tarjetasSearch.trim()){
+    const q=tarjetasSearch.trim().toLowerCase();
+    cards=cards.filter(c=>(c.german||'').toLowerCase().indexOf(q)>=0 || (c.english||'').toLowerCase().indexOf(q)>=0);
+  }
+  cards=sortCards(cards, tarjetasSort);
+
+  let h='';
+  if(!cards.length){
+    h='<div class="empty-msg"><div class="big">Sin tarjetas</div><div class="small">No hay tarjetas con este filtro.</div></div>';
+  } else if(tarjetasView==='list'){
+    h='<div class="tj-list">'+cards.map(tjListRow).join('')+'</div>';
+  } else {
+    h='<div class="tj-grid">'+cards.map(tjGridCard).join('')+'</div>';
+  }
+  const results=document.getElementById('tjResults');
+  results.innerHTML=h;
+  results.querySelectorAll('[data-card-id]').forEach(el=>el.onclick=()=>openCardDetail(el.dataset.cardId));
 }
 function tjListRow(c){
   const art=c.gender?c.gender+' ':'';
