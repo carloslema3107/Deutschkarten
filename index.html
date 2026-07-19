@@ -198,6 +198,8 @@
   .carddetail{width:100%;text-align:left;margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);}
   .wtype{font-family:'SF Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--red);margin-bottom:8px;}
   .mainword{font-family:Georgia,serif;font-weight:700;color:var(--ink);line-height:1.25;}
+  .mainword-row{display:flex;align-items:center;justify-content:center;gap:8px;}
+  .speak-btn{background:none;border:none;color:var(--teal);font-size:19px;cursor:pointer;padding:4px;flex:0 0 auto;line-height:1;}
   .art{font-weight:400;}
   .art-der{color:var(--blue);} .art-die{color:var(--red);} .art-das{color:var(--moss);}
   .topictag{margin-top:12px;font-family:'SF Mono',monospace;font-size:10px;color:var(--ink-soft);}
@@ -253,6 +255,7 @@
 <div id="studyOverlay">
   <div class="study-top">
     <button class="glass-btn exitbtn" id="exitStudy"><i class="ti ti-x"></i></button>
+    <button class="glass-btn exitbtn" id="undoBtn" style="display:none;"><i class="ti ti-arrow-back-up"></i></button>
     <div class="cnt" id="studyCnt">0 / 0</div>
   </div>
   <div class="study-body" id="studyBody"></div>
@@ -1127,13 +1130,16 @@ function openCardDetail(cardId){
   const c=allCards().find(x=>x.id===cardId); if(!c) return;
   const art=c.gender?c.gender+' ':'';
   let html='<div style="padding:4px 4px 12px;">';
-  html+='<div style="font-family:Georgia,serif;font-size:22px;font-weight:700;color:var(--ink);">'+(art?'<span class="'+genderClass(c.gender)+'">'+art+'</span>':'')+c.german+'</div>';
+  html+='<div style="display:flex;align-items:center;gap:8px;"><div style="font-family:Georgia,serif;font-size:22px;font-weight:700;color:var(--ink);">'+(art?'<span class="'+genderClass(c.gender)+'">'+art+'</span>':'')+c.german+'</div>'+
+    '<button class="speak-btn" data-speak="'+String(c.german).replace(/"/g,'&quot;')+'"><i class="ti ti-volume-2"></i></button></div>';
   html+='<div style="font-size:15px;color:var(--ink-soft);margin-top:4px;">'+c.english+'</div>';
   html+='<div style="font-size:12px;color:var(--ink-soft);margin-top:8px;">'+wordTypeEmoji(c.wordType)+' '+(WORDTYPE_LABEL[c.wordType]||c.wordType)+' \u00b7 '+topicEmoji(c.topic)+' '+(c.topic||'')+'</div>';
   if(c.example) html+='<div style="font-size:13px;font-style:italic;color:var(--ink-soft);margin-top:10px;">'+c.example+'</div>';
   html+=richDetailHTML(c);
   html+='</div>';
   openSheet('Detalle', html);
+  const sb=document.getElementById('sheetBody').querySelector('.speak-btn');
+  if(sb) sb.addEventListener('click', e=>{ e.stopPropagation(); speak(sb.dataset.speak); });
 }
 function openMultiPicker(title, options, selected, onDone){
   let sel=selected.slice();
@@ -1311,7 +1317,7 @@ function renderOmni(){
   };
 }
 
-let studyQueue=[], studyIdx=0, studyReturn=null, studySettings=null, flipped=false, autoFlipTimer=null, studyDone=0, cardShownAt=0, againCounts={};
+let studyQueue=[], studyIdx=0, studyReturn=null, studySettings=null, flipped=false, autoFlipTimer=null, studyDone=0, cardShownAt=0, againCounts={}, lastAction=null;
 
 function startStudy(deckId, forcedBucket){
   const cards=cardsForLevel(deckId);
@@ -1326,7 +1332,7 @@ function startStudy(deckId, forcedBucket){
 }
 
 function startStudySession(pool, s, returnTo){
-  studySettings=s; studyReturn=returnTo; studyDone=0; againCounts={};
+  studySettings=s; studyReturn=returnTo; studyDone=0; againCounts={}; lastAction=null;
   if(s.reviewMode==='aleatorio') pool.sort(()=>Math.random()-0.5);
   else if(s.reviewMode==='creacion') pool.sort((a,b)=>a.id.localeCompare(b.id));
   else if(s.reviewMode==='creacion_inv') pool.sort((a,b)=>b.id.localeCompare(a.id));
@@ -1350,6 +1356,20 @@ document.getElementById('exitStudy').onclick=()=>{
   }
 };
 
+function speak(text){
+  if(!('speechSynthesis' in window) || !text) return;
+  try{
+    speechSynthesis.cancel();
+    const u=new SpeechSynthesisUtterance(text);
+    u.lang='de-DE'; u.rate=0.85;
+    speechSynthesis.speak(u);
+  }catch(e){}
+}
+function germanWordWithSpeaker(text, gender, artCls, fz){
+  const article=gender==='der'?'der ':gender==='die'?'die ':gender==='das'?'das ':'';
+  return '<div class="mainword-row"><div class="mainword" style="font-size:'+fz+'px;">'+(article?'<span class="art '+artCls+'">'+article+'</span>':'')+text+'</div>'+
+    '<button class="speak-btn" data-speak="'+String(text).replace(/"/g,'&quot;')+'"><i class="ti ti-volume-2"></i></button></div>';
+}
 function renderStudyCard(){
   clearTimeout(autoFlipTimer);
   document.getElementById('studyCnt').textContent=(studyIdx)+' / '+studyQueue.length;
@@ -1363,16 +1383,15 @@ function renderStudyCard(){
   let orient=studySettings.orientation;
   if(orient==='mixto') orient=Math.random()<0.5?'normal':'invertido';
   const showGermanFirst = orient!=='invertido';
-  const article=c.gender==='der'?'der ':c.gender==='die'?'die ':c.gender==='das'?'das ':'';
   const artCls=genderClass(c.gender);
   const fz=studySettings.fontSize;
   const typeLbl=(WORDTYPE_LABEL[c.wordType]||(c.wordType||'').toUpperCase());
   const frontHTML = showGermanFirst
-    ? '<div class="wtype">'+wordTypeEmoji(c.wordType)+' '+typeLbl+'</div><div class="mainword" style="font-size:'+fz+'px;">'+(article?'<span class="art '+artCls+'">'+article+'</span>':'')+c.german+'</div><div class="topictag">'+(c.topic?topicEmoji(c.topic)+' '+c.topic:'')+'</div>'
+    ? '<div class="wtype">'+wordTypeEmoji(c.wordType)+' '+typeLbl+'</div>'+germanWordWithSpeaker(c.german, c.gender, artCls, fz)+'<div class="topictag">'+(c.topic?topicEmoji(c.topic)+' '+c.topic:'')+'</div>'
     : '<div class="mainword" style="font-size:'+fz+'px;">'+c.english+'</div>';
   const backHTML = showGermanFirst
     ? '<div class="mainword" style="font-size:'+Math.round(fz*0.85)+'px;">'+c.english+'</div><div class="exsent">'+(c.example||'')+'</div><div class="carddetail">'+richDetailHTML(c)+'</div>'
-    : '<div class="wtype">'+wordTypeEmoji(c.wordType)+' '+typeLbl+'</div><div class="mainword" style="font-size:'+Math.round(fz*0.85)+'px;">'+(article?'<span class="art '+artCls+'">'+article+'</span>':'')+c.german+'</div><div class="exsent">'+(c.example||'')+'</div><div class="carddetail">'+richDetailHTML(c)+'</div>';
+    : '<div class="wtype">'+wordTypeEmoji(c.wordType)+' '+typeLbl+'</div>'+germanWordWithSpeaker(c.german, c.gender, artCls, Math.round(fz*0.85))+'<div class="exsent">'+(c.example||'')+'</div><div class="carddetail">'+richDetailHTML(c)+'</div>';
 
   body.innerHTML='<div class="stage"><div class="card-flip" id="cardFlip">'+
     '<div class="face front"><div class="holes"><span></span><span></span><span></span><span></span><span></span></div>'+frontHTML+'<div class="taphint">Toca para voltear</div></div>'+
@@ -1382,6 +1401,9 @@ function renderStudyCard(){
   const cf=document.getElementById('cardFlip');
   cf.addEventListener('click', onCardTap);
   document.getElementById('ratings').classList.remove('show');
+  document.querySelectorAll('.speak-btn').forEach(btn=>{
+    btn.addEventListener('click', e=>{ e.stopPropagation(); speak(btn.dataset.speak); });
+  });
 
   cardShownAt=Date.now();
   const prog=getProgress(c.id), ret=studySettings.retention;
@@ -1410,22 +1432,46 @@ document.querySelectorAll('.rate-btn').forEach(btn=>{
     const g=parseInt(btn.dataset.g);
     const c=studyQueue[studyIdx];
     const prog=getProgress(c.id);
+    const prevAgainCount=againCounts[c.id]||0;
     const next=computeNext(prog, g, studySettings.retention);
     let dueDate=next.due;
+    let willRequeue=false;
     if(g===1){
       againCounts[c.id]=(againCounts[c.id]||0)+1;
       if(againCounts[c.id]>=2) dueDate=new Date();
+      else willRequeue=true;
     }
     setProgress(c.id, {stability:next.stability, difficulty:next.difficulty, due:dueDate.toISOString(), reps:next.reps, lapses:next.lapses, lastReview:new Date().toISOString()});
     logReview(c.id, c.level, g, Date.now()-cardShownAt);
     studyDone++;
-    if(g===1 && againCounts[c.id]<2){
+    lastAction={cardId:c.id, prevProgress:prog?Object.assign({},prog):null, prevAgainCount, studyIdxBefore:studyIdx, studyDoneBefore:studyDone-1, pushedToEnd:willRequeue};
+    document.getElementById('undoBtn').style.display='flex';
+    if(willRequeue){
       studyQueue.push(c);
     }
     studyIdx++;
     renderStudyCard();
   });
 });
+function undoLastRating(){
+  if(!lastAction) return;
+  const {cardId, prevProgress, prevAgainCount, studyIdxBefore, studyDoneBefore, pushedToEnd}=lastAction;
+  if(prevProgress){ setProgress(cardId, prevProgress); }
+  else{ const prog=loadJSON(PROGRESS_KEY,{}); delete prog[cardId]; saveJSON(PROGRESS_KEY, prog); }
+  if(prevAgainCount>0) againCounts[cardId]=prevAgainCount; else delete againCounts[cardId];
+  const log=loadJSON(LOG_KEY,[]); log.pop(); saveJSON(LOG_KEY, log);
+  if(pushedToEnd){
+    for(let i=studyQueue.length-1;i>=0;i--){ if(studyQueue[i].id===cardId){ studyQueue.splice(i,1); break; } }
+  }
+  studyDone=studyDoneBefore;
+  studyIdx=studyIdxBefore;
+  lastAction=null;
+  document.getElementById('undoBtn').style.display='none';
+  renderStudyCard();
+  showToast('Calificaci\u00f3n deshecha');
+}
+document.getElementById('undoBtn').onclick=(e)=>{ e.stopPropagation(); undoLastRating(); };
+
 
 document.querySelectorAll('.tab-btn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
