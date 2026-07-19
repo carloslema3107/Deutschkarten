@@ -280,16 +280,24 @@ function saveJSON(k,v){ localStorage.setItem(k, JSON.stringify(v)); }
 
 const DECKS=['A1','A2','B1.1','B1.2'];
 const REGISTRY_KEY='dk_deck_registry_v1';
+const TRASH_KEY='dk_trash_v1';
+const HIDDEN_BUILTIN_KEY='dk_hidden_builtin_v1';
+function getHiddenBuiltin(){ return loadJSON(HIDDEN_BUILTIN_KEY, []); }
+function saveHiddenBuiltin(arr){ saveJSON(HIDDEN_BUILTIN_KEY, arr); }
 function getRegistry(){
   let r=loadJSON(REGISTRY_KEY,null);
   if(!r){ r=DECKS.map(id=>({id,name:id})); saveJSON(REGISTRY_KEY,r); }
+  const hiddenBuiltin=getHiddenBuiltin();
   let changed=false;
-  DECKS.forEach(id=>{ if(!r.find(d=>d.id===id)){ r.push({id,name:id}); changed=true; } });
+  DECKS.forEach(id=>{ if(hiddenBuiltin.indexOf(id)<0 && !r.find(d=>d.id===id)){ r.push({id,name:id}); changed=true; } });
   if(changed) saveJSON(REGISTRY_KEY,r);
   return r;
 }
 function saveRegistry(r){ saveJSON(REGISTRY_KEY,r); }
-function allDeckIds(){ return getRegistry().map(d=>d.id); }
+function getTrash(){ return loadJSON(TRASH_KEY, {}); }
+function saveTrash(t){ saveJSON(TRASH_KEY, t); }
+function allDeckIds(){ const trash=getTrash(); return getRegistry().map(d=>d.id).filter(id=>!trash[id]); }
+function trashedDeckIds(){ const trash=getTrash(); return getRegistry().map(d=>d.id).filter(id=>trash[id]); }
 function deckName(id){ const d=getRegistry().find(x=>x.id===id); return d?d.name:id; }
 function renameDeck(id,newName){ const r=getRegistry(); const d=r.find(x=>x.id===id); if(d && newName && newName.trim()){ d.name=newName.trim(); saveRegistry(r); } }
 function addDeck(name){
@@ -299,6 +307,50 @@ function addDeck(name){
   r.push({id, name:(name||id).trim()||id});
   saveRegistry(r);
   return id;
+}
+function trashDeck(deckId){
+  const trash=getTrash();
+  trash[deckId]={deletedAt:new Date().toISOString()};
+  saveTrash(trash);
+}
+function restoreDeck(deckId){
+  const trash=getTrash();
+  delete trash[deckId];
+  saveTrash(trash);
+}
+function purgeDeckPermanently(deckId){
+  const allC=CARDS.concat(loadJSON(CUSTOM_KEY,[]));
+  const idsOfLevel=new Set(allC.filter(c=>c.level===deckId).map(c=>c.id));
+  saveJSON(CUSTOM_KEY, loadJSON(CUSTOM_KEY,[]).filter(c=>c.level!==deckId));
+  const prog=loadJSON(PROGRESS_KEY,{});
+  idsOfLevel.forEach(id=>{ delete prog[id]; });
+  saveJSON(PROGRESS_KEY, prog);
+  const settings=loadJSON(SETTINGS_KEY,{});
+  delete settings[deckId];
+  saveJSON(SETTINGS_KEY, settings);
+  saveRegistry(getRegistry().filter(d=>d.id!==deckId));
+  if(DECKS.indexOf(deckId)>=0){
+    const hidden=getHiddenBuiltin();
+    if(hidden.indexOf(deckId)<0){ hidden.push(deckId); saveHiddenBuiltin(hidden); }
+  }
+  const trash=getTrash(); delete trash[deckId]; saveTrash(trash);
+}
+function resetDeckProgress(deckId){
+  const cards=cardsForLevel(deckId);
+  const ids=new Set(cards.map(c=>c.id));
+  const prog=loadJSON(PROGRESS_KEY,{});
+  ids.forEach(id=>{ delete prog[id]; });
+  saveJSON(PROGRESS_KEY, prog);
+  const log=loadJSON(LOG_KEY,[]);
+  saveJSON(LOG_KEY, log.filter(e=>e.level!==deckId));
+}
+function purgeExpiredTrash(){
+  const trash=getTrash();
+  const now=Date.now();
+  Object.keys(trash).forEach(id=>{
+    const age=now-new Date(trash[id].deletedAt).getTime();
+    if(age>30*86400000) purgeDeckPermanently(id);
+  });
 }
 function allCards(){ return CARDS.concat(loadJSON(CUSTOM_KEY,[])); }
 function cardsForLevel(lv){ return allCards().filter(c=>c.level===lv); }
@@ -688,11 +740,11 @@ function runImportFlow(text, forceLevel){
   }
   if(unmatched.length) processUnmatched(0); else finishImport();
 }
-function openTextPrompt(title, placeholder, defaultValue, onConfirm, desc){
+function openTextPrompt(title, placeholder, defaultValue, onConfirm, desc, confirmLabel){
   let html='<div style="padding:4px 16px 20px;">';
   if(desc) html+='<div style="font-size:12px;color:var(--ink-soft);margin-bottom:12px;line-height:1.5;">'+desc+'</div>';
   html+='<input type="text" id="promptInput" value="'+String(defaultValue||'').replace(/"/g,'&quot;')+'" placeholder="'+placeholder+'" style="width:100%;padding:12px;border-radius:8px;border:1px solid var(--line);background:#fff;font-size:15px;color:var(--ink);box-sizing:border-box;">'+
-    '<button id="promptConfirm" style="margin-top:14px;width:100%;padding:12px;border:none;border-radius:8px;background:var(--teal);color:#fff;font-size:14px;font-weight:700;cursor:pointer;">Guardar</button>'+
+    '<button id="promptConfirm" style="margin-top:14px;width:100%;padding:12px;border:none;border-radius:8px;background:var(--teal);color:#fff;font-size:14px;font-weight:700;cursor:pointer;">'+(confirmLabel||'Guardar')+'</button>'+
     '</div>';
   openSheet(title, html);
   const inputEl=document.getElementById('promptInput');
@@ -701,6 +753,14 @@ function openTextPrompt(title, placeholder, defaultValue, onConfirm, desc){
     closeSheet();
     onConfirm(val);
   };
+}
+function openConfirm(title, message, confirmLabel, onConfirm){
+  let html='<div style="padding:4px 16px 20px;">';
+  html+='<div style="font-size:13px;color:var(--ink-soft);line-height:1.5;margin-bottom:16px;">'+message+'</div>';
+  html+='<button id="confirmYes" style="width:100%;padding:12px;border:none;border-radius:8px;background:var(--red);color:#fff;font-size:14px;font-weight:700;cursor:pointer;">'+confirmLabel+'</button>'+
+    '</div>';
+  openSheet(title, html);
+  document.getElementById('confirmYes').onclick=()=>{ closeSheet(); onConfirm(); };
 }
 function triggerImport(forceLevel){
   const input=document.createElement('input');
@@ -769,6 +829,7 @@ function openPicker(title, options, current, onSelect){
 
 function renderMazos(){
   state.screen='mazos'; state.deckId=null;
+  purgeExpiredTrash();
   topTitle.textContent='Mazos'; backBtn.style.display='none'; plusBtn.style.display='block';
   settingsBtn.style.display='block'; settingsBtn.onclick=openGeneralSettings;
   plusBtn.onclick=()=>triggerImport(null);
@@ -780,8 +841,42 @@ function renderMazos(){
     h+='<div class="deck-row" data-id="'+id+'"><div><div class="name">'+deckName(id)+'</div><div class="sub">'+cards.length+' tarjetas</div></div>'+
        (pend?'<span class="badge pend">'+pend+' pend.</span>':(nvo?'<span class="badge nvo">'+nvo+' nuevo</span>':''))+'</div>';
   });
+  const trashCount=trashedDeckIds().length;
+  h+='<div class="deck-row" id="trashRow" style="margin-top:10px;"><div><div class="name" style="font-size:14px;">\ud83d\uddd1\ufe0f Papelera</div><div class="sub">'+(trashCount?trashCount+' mazo(s) eliminado(s)':'vac\u00eda')+'</div></div></div>';
   content.innerHTML=h;
-  document.querySelectorAll('.deck-row').forEach(el=>el.onclick=()=>renderDeck(el.dataset.id));
+  document.querySelectorAll('.deck-row[data-id]').forEach(el=>el.onclick=()=>renderDeck(el.dataset.id));
+  document.getElementById('trashRow').onclick=renderTrash;
+}
+function renderTrash(){
+  state.screen='trash'; state.deckId=null;
+  purgeExpiredTrash();
+  topTitle.textContent='Papelera'; backBtn.style.display='block'; plusBtn.style.display='none'; settingsBtn.style.display='none';
+  backBtn.onclick=renderMazos;
+  const trash=getTrash();
+  const ids=trashedDeckIds();
+  let h='';
+  if(!ids.length){
+    h='<div class="empty-msg"><div class="big">Papelera vac\u00eda</div><div class="small">Los mazos que elimines aparecer\u00e1n aqu\u00ed durante 30 d\u00edas antes de borrarse para siempre.</div></div>';
+  } else {
+    h='<div class="sub-label">Se eliminan definitivamente a los 30 d\u00edas</div>';
+    ids.forEach(id=>{
+      const deletedAt=new Date(trash[id].deletedAt);
+      const daysLeft=Math.max(0, 30-Math.floor((Date.now()-deletedAt.getTime())/86400000));
+      h+='<div class="deck-row"><div><div class="name">'+deckName(id)+'</div><div class="sub">'+daysLeft+' d\u00edas restantes</div></div>'+
+         '<div style="display:flex;gap:6px;">'+
+         '<button class="glass-btn" data-restore="'+id+'" style="width:32px;height:32px;background:color-mix(in srgb, var(--moss) 70%, transparent);"><i class="ti ti-arrow-back-up"></i></button>'+
+         '<button class="glass-btn" data-purge="'+id+'" style="width:32px;height:32px;background:color-mix(in srgb, var(--red) 70%, transparent);"><i class="ti ti-trash"></i></button>'+
+         '</div></div>';
+    });
+  }
+  content.innerHTML=h;
+  content.querySelectorAll('[data-restore]').forEach(el=>el.onclick=()=>{ restoreDeck(el.dataset.restore); renderTrash(); });
+  content.querySelectorAll('[data-purge]').forEach(el=>{
+    el.onclick=()=>{
+      const id=el.dataset.purge;
+      openConfirm('Eliminar definitivamente', 'Esto borrar\u00e1 el mazo "'+deckName(id)+'" y todo su progreso para siempre. No se puede deshacer.', 'Eliminar para siempre', ()=>{ purgeDeckPermanently(id); renderTrash(); });
+    };
+  });
 }
 
 function estMinutes(n){ return Math.max(1, Math.round(n*8/60)); }
@@ -819,6 +914,8 @@ function renderDeck(id){
   h+=setRow('refresh','Orientaci\u00f3n de la tarjeta', {normal:'Normal',invertido:'Invertido',mixto:'Mixto'}[s.orientation]);
   h+='<div class="set-row" id="stabRow"><i class="ti ti-arrow-bar-to-down"></i><span class="lbl">Estabilizaci\u00f3n al voltear</span><div class="toggle '+(s.stabilizeOnFlip?'on':'')+'" id="stabToggle"><div class="knob"></div></div></div>';
   h+=setRow('upload','Importar tarjetas a este mazo', '');
+  h+=setRow('eraser','Reiniciar progreso', '');
+  h+=setRow('trash','Eliminar mazo', '');
 
   const studyPool = activeBucket ? filteredCards.filter(c=>cardMatchesTagFilter(c,s.tagFilter)) : cards.filter(c=>{const b=bucketFor(getProgress(c.id)); return (b==='ahora'||b==='nvo') && cardMatchesTagFilter(c,s.tagFilter);});
   h+='<div class="sticky-bottom"><div><div class="go"><i class="ti ti-player-play"></i>Repasar'+(activeBucket?' ('+bucketLabel(activeBucket)+')':'')+'</div><div class="est">Tiempo estimado '+estMinutes(studyPool.length)+' min</div></div><span class="count">'+studyPool.length+'</span></div>';
@@ -838,6 +935,13 @@ function renderDeck(id){
       else if(label==='Retenci\u00f3n FSRS') openPicker('Retenci\u00f3n FSRS',[['0.85','Ligero (85%)'],['0.9','Equilibrado (90%)'],['0.95','Intensivo (95%)']].map(v=>({label:v[1],value:v[0]})), String(s.retention), v=>{setSetting(id,'retention',parseFloat(v)); renderDeck(id);});
       else if(label==='Orientaci\u00f3n de la tarjeta') openPicker('Orientaci\u00f3n de la tarjeta',[['normal','Normal'],['invertido','Invertido'],['mixto','Mixto']].map(v=>({label:v[1],value:v[0]})), s.orientation, v=>{setSetting(id,'orientation',v); renderDeck(id);});
       else if(label==='Importar tarjetas a este mazo') triggerImport(id);
+      else if(label==='Reiniciar progreso') openConfirm('Reiniciar progreso', 'Esto borrar\u00e1 TODO tu progreso de repaso en "'+deckName(id)+'": vencimientos, dificultad, estabilidad e historial de repasos. Las tarjetas volver\u00e1n a estar como si nunca las hubieras estudiado. Esta acci\u00f3n no se puede deshacer.', 'Continuar', ()=>{
+        openTextPrompt('Confirmar reinicio', deckName(id), '', (typed)=>{
+          if(typed.trim()===deckName(id)){ resetDeckProgress(id); showToast('Progreso de "'+deckName(id)+'" reiniciado'); renderDeck(id); }
+          else{ showToast('No coincide \u2014 no se reinici\u00f3 nada'); }
+        }, 'Para confirmar de verdad, escribe el nombre exacto del mazo: "'+deckName(id)+'"', 'Reiniciar progreso');
+      });
+      else if(label==='Eliminar mazo') openConfirm('Eliminar mazo', 'Se mover\u00e1 "'+deckName(id)+'" a la papelera. Podr\u00e1s recuperarlo durante 30 d\u00edas; despu\u00e9s se borrar\u00e1 para siempre.', 'Mover a la papelera', ()=>{ trashDeck(id); renderMazos(); });
     };
   });
   content.querySelectorAll('.hist .bar-wrap').forEach(el=>{
