@@ -501,15 +501,130 @@ function normalizeLevel(v){
 }
 function normalizeGermanField(str){
   let s=(str||'').trim();
+  const dual=s.match(/^der\/die\s+/i);
+  if(dual){ return {german:s.slice(dual[0].length), gender:null}; }
   const m=s.match(/^(der|die|das)\s+/i);
   let gender=null;
   if(m){ gender=m[1].toLowerCase(); s=s.slice(m[0].length); }
   return {german:s, gender};
 }
+
+/* ---------- AlgoApp-style export support (headerless: Front, Back-HTML, Tags) ---------- */
+function stripAccents(s){ return s.normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+function decodeHtmlBits(s){ return s.replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&middot;/g,'\u00b7').replace(/\s+/g,' ').trim(); }
+function stripHtmlTags(s){ return s.replace(/<[^>]+>/g,''); }
+const LEVEL_EMOJI_MAP={'🟢':'A1','🟡':'A2','🔵':'B1.1','🩵':'B1.2','🟣':'B2','🟠':'C1','🔴':'C2'};
+const WORDTYPE_TAG_MAP={sustantivo:'noun',verbo:'verb',adjetivo:'adjective',adverbio:'adverb',preposicion:'preposition',conjuncion:'conjunction',frase:'phrase',otro:'other'};
+function looksLikeAlgoAppExport(rows){
+  if(!rows.length) return false;
+  const s=rows[0];
+  return s.length===3 && /<b>/.test(s[1]||'');
+}
+function parseAlgoAppTags(tagField){
+  const parts=(tagField||'').split(',').map(t=>t.trim()).filter(Boolean);
+  let level=null, topic=null, wordType=null;
+  parts.forEach(t=>{
+    const emoji=Object.keys(LEVEL_EMOJI_MAP).find(e=>t.indexOf(e)===0);
+    if(emoji){ level=LEVEL_EMOJI_MAP[emoji]; return; }
+    const rest=t.replace(/^\S+\s*/,'').trim();
+    const key=stripAccents(rest).toLowerCase();
+    if(WORDTYPE_TAG_MAP[key]){ wordType=WORDTYPE_TAG_MAP[key]; return; }
+    if(key==='curso') return;
+    topic=rest;
+  });
+  return {level, topic, wordType};
+}
+function parseAlgoAppBackHTML(html, wordType){
+  const out={};
+  const bMatches=[...html.matchAll(/<b>(.*?)<\/b>/gs)];
+  if(bMatches.length) out.english=decodeHtmlBits(stripHtmlTags(bMatches[0][1]));
+  if(/Irregular/.test(html)) out.regularity='irregular';
+  else if(/Regular\b/.test(html)) out.regularity='regular';
+  const ppMatch=html.match(/PP:\s*<\/small>\s*<b>([^<]+)<\/b>/);
+  if(ppMatch){
+    const parts=decodeHtmlBits(ppMatch[1]).split(' ');
+    if(parts.length>=2){ out.auxiliaryVerb=parts[0]; out.pp=parts.slice(1).join(' '); }
+    else out.pp=decodeHtmlBits(ppMatch[1]);
+  }
+  function extractConjSection(sectionHtml){
+    const forms=[]; const re=/<small>(ich|du|er\/sie\/es|wir|ihr|sie\/Sie)<\/small>\s*([^\s<&]+)/g;
+    let m; while((m=re.exec(sectionHtml))){ forms.push(m[2]); }
+    return forms.length?forms.join(';'):null;
+  }
+  const praesensIdx=html.indexOf('Pr\u00e4sens:');
+  const praeteritumIdx=html.indexOf('Pr\u00e4teritum:');
+  if(praesensIdx>=0){ const end=praeteritumIdx>=0?praeteritumIdx:html.length; out.presentConj=extractConjSection(html.slice(praesensIdx,end)); }
+  if(praeteritumIdx>=0){ let stop=html.indexOf('<br><br><i>',praeteritumIdx); if(stop<0) stop=html.length; out.praeteritum=extractConjSection(html.slice(praeteritumIdx,stop)); }
+  const pluralMatch=html.match(/Plural\s*<\/small>\s*<b>([^<]+)<\/b>/);
+  if(pluralMatch) out.plural=normalizeGermanField(decodeHtmlBits(pluralMatch[1])).german;
+  const kompMatch=html.match(/Komp\.\s*<\/small>\s*<b>([^<]+)<\/b>/);
+  const superlMatch=html.match(/Superl\.\s*<\/small>\s*<b>([^<]+)<\/b>/);
+  if(kompMatch) out.komparativ=decodeHtmlBits(kompMatch[1]);
+  if(superlMatch) out.superlativ=decodeHtmlBits(superlMatch[1]);
+  const kasusMatch=html.match(/Kasus:\s*<\/small>\s*<span[^>]*>([^<]+)<\/span>/);
+  if(kasusMatch){ const val=decodeHtmlBits(kasusMatch[1]); if(wordType==='preposition') out.prepCase=val; else out.verbCase=val; }
+  const typMatch=html.match(/Typ:\s*<\/small>\s*<b>([^<]+)<\/b>/);
+  if(typMatch) out.conjType=decodeHtmlBits(typMatch[1]);
+  const exMatch=html.match(/<i>["]*(.*?)["]*<\/i>/s);
+  if(exMatch){ const ex=decodeHtmlBits(stripHtmlTags(exMatch[1])).replace(/^"+|"+$/g,'').trim(); if(ex) out.example=ex; }
+  const smallMatches=[...html.matchAll(/<small>(.*?)<\/small>/gs)];
+  const structuredLabels=new Set(['PP:','Pr\u00e4sens:','Pr\u00e4teritum:','Plural','Komp.','Superl.','Kasus:','Typ:',...PRONOUNS]);
+  const leftover=[];
+  smallMatches.forEach(m=>{
+    const t=decodeHtmlBits(stripHtmlTags(m[1]));
+    if(!t || structuredLabels.has(t) || /(Regular|Irregular)$/.test(t)) return;
+    leftover.push(t);
+  });
+  if(leftover.length) out.notes=leftover.join('; ');
+  return out;
+}
+function preprocessAlgoAppFront(frontRaw){
+  let s=frontRaw.trim();
+  const extra={};
+  const trennMatch=s.match(/^(.*?)\s*\(trennb\.\)\s*$/i);
+  if(trennMatch){
+    extra.separable=true;
+    s=trennMatch[1].trim();
+    if(s.indexOf('|')>=0){
+      const parts=s.split('|');
+      extra.separablePrefix=parts[0].trim();
+      s=parts.join('').trim();
+    }
+  }
+  return {front:s, extra};
+}
+function stripPluralOnlyMarker(s){
+  const m=s.match(/^\(pl\.\)\s*(.+)$/i);
+  if(m) return {clean:m[1].trim(), isPluralOnly:true};
+  return {clean:s, isPluralOnly:false};
+}
+function parseAlgoAppRows(rows, forceLevel){
+  const groups={};
+  let invalidRows=0;
+  rows.forEach(r=>{
+    const [frontRaw, backRaw, tagsRaw]=r;
+    if(!frontRaw || !frontRaw.trim()){ invalidRows++; return; }
+    const {level, topic, wordType}=parseAlgoAppTags(tagsRaw);
+    const {front, extra}=preprocessAlgoAppFront(frontRaw);
+    const norm=normalizeGermanField(front);
+    const pluralCheck=stripPluralOnlyMarker(norm.german);
+    const backData=parseAlgoAppBackHTML(backRaw||'', wordType);
+    const obj=Object.assign({german:pluralCheck.clean, gender: pluralCheck.isPluralOnly ? null : norm.gender, wordType:wordType||'other', topic}, backData);
+    if(extra.separable){ obj.separable=true; if(extra.separablePrefix) obj.separablePrefix=extra.separablePrefix; }
+    if(pluralCheck.isPluralOnly){ obj.notes = obj.notes ? ('Nur Plural \u00b7 '+obj.notes) : 'Nur Plural'; }
+    const levelId=forceLevel || normalizeLevel(level);
+    const key=levelId?('ID:'+levelId):('RAW:'+(level||'(sin nivel)'));
+    if(!groups[key]) groups[key]={levelId, rawLevel:level, rows:[]};
+    groups[key].rows.push(obj);
+  });
+  return {groups:Object.values(groups), invalidRows};
+}
+
 function parseAndGroupCSV(text, forceLevel){
   const delim=detectDelimiter(text);
   const rows=parseCSV(text, delim).filter(r=>r.some(c=>c.trim()!==''));
   if(!rows.length) return {groups:[], invalidRows:0};
+  if(looksLikeAlgoAppExport(rows)) return parseAlgoAppRows(rows, forceLevel);
   const headers=rows[0].map(normHeader);
   const groups={};
   let invalidRows=0;
@@ -1194,7 +1309,10 @@ document.querySelectorAll('.rate-btn').forEach(btn=>{
     setProgress(c.id, {stability:next.stability, difficulty:next.difficulty, due:next.due.toISOString(), reps:next.reps, lapses:next.lapses, lastReview:new Date().toISOString()});
     logReview(c.id, c.level, g, Date.now()-cardShownAt);
     studyDone++;
-    if(g===1) studyQueue.splice(studyIdx+1,0,c);
+    if(g===1){
+      const insertAt=Math.min(studyQueue.length, studyIdx+1+3);
+      studyQueue.splice(insertAt, 0, c);
+    }
     studyIdx++;
     renderStudyCard();
   });
