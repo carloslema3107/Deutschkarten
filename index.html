@@ -70,10 +70,12 @@
   #topbar{
     position:fixed; top:0; left:0; right:0; z-index:30;
     padding:calc(env(safe-area-inset-top) + 8px) 12px 10px;
-    display:flex; align-items:center; gap:8px; min-height:26px;
+    display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:8px; min-height:26px;
   }
+  #topbar .topbar-left{display:flex; justify-content:flex-start;}
+  #topbar .topbar-right{display:flex; justify-content:flex-end; gap:8px;}
   #topbar .backbtn{color:var(--chrome-text);font-size:19px;padding:0;cursor:pointer;line-height:1;}
-  #topbar .title{font-family:Georgia,serif;font-weight:700;font-size:19px;color:var(--chrome-text);flex:1;text-align:center;}
+  #topbar .title{font-family:Georgia,serif;font-weight:700;font-size:19px;color:var(--chrome-text);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   #topbar .plusbtn{color:var(--chrome-text);font-size:18px;cursor:pointer;padding:0;}
 
   #content{
@@ -87,6 +89,7 @@
   .deck-row{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line);background:var(--row);cursor:pointer;}
   .deck-row .name{font-family:Georgia,serif;font-weight:700;font-size:17px;color:var(--ink);}
   .deck-row .sub{font-size:11px;color:var(--ink-soft);margin-top:3px;}
+  .badge-stack{display:flex;flex-direction:column;align-items:flex-end;gap:4px;}
   .badge{font-family:'SF Mono',monospace;font-size:11px;padding:4px 9px;border-radius:10px;color:#fff;white-space:nowrap;}
   .badge.pend{background:var(--red);}
   .badge.nvo{background:var(--purple);}
@@ -136,7 +139,7 @@
 
   .tj-search{display:flex;align-items:center;gap:8px;margin:10px 16px 0;padding:9px 12px;background:var(--row);border-radius:8px;}
   .cap-form{padding:14px 16px 8px;display:flex;flex-direction:column;gap:8px;}
-  .cap-form input{padding:12px;border-radius:8px;border:1px solid var(--line);background:#fff;font-size:15px;color:var(--ink);box-sizing:border-box;}
+  .cap-form input{padding:12px;border-radius:8px;border:1px solid var(--line);background:var(--row);font-size:15px;color:var(--ink);box-sizing:border-box;}
   .cap-form button{padding:12px;border:none;border-radius:8px;background:var(--teal);color:#fff;font-size:14px;font-weight:700;cursor:pointer;}
   .cap-actions{display:flex;gap:6px;padding:4px 16px 12px;}
   .cap-actionbtn{flex:1;padding:9px 4px;border:none;border-radius:8px;background:var(--row);color:var(--ink);font-size:10.5px;font-family:'SF Mono',monospace;cursor:pointer;white-space:nowrap;}
@@ -226,6 +229,23 @@
   .rate-btn .d{font-size:9px;opacity:.75;font-weight:400;}
   .rate-btn.again{background:color-mix(in srgb, var(--red) 82%, transparent);} .rate-btn.hard{background:color-mix(in srgb, var(--ochre) 82%, transparent);color:#2B2620;}
   .rate-btn.good{background:color-mix(in srgb, var(--moss) 82%, transparent);} .rate-btn.easy{background:color-mix(in srgb, var(--teal) 82%, transparent);}
+  .floating-ratings{
+    position:fixed; z-index:55; display:flex; flex-direction:column; gap:10px;
+    right:16px; bottom:calc(env(safe-area-inset-bottom) + 110px);
+    touch-action:none;
+  }
+  .frate-btn{
+    width:58px; height:58px; border-radius:50%; border:0.5px solid rgba(255,255,255,.25); color:#fff;
+    font-family:'SF Mono',monospace; font-size:10px; font-weight:700; text-transform:uppercase;
+    display:flex; align-items:center; justify-content:center; text-align:center; line-height:1.15;
+    cursor:grab; -webkit-backdrop-filter:blur(12px) saturate(160%); backdrop-filter:blur(12px) saturate(160%);
+    box-shadow:0 4px 14px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.3);
+    padding:4px;
+  }
+  .frate-btn.easy{background:color-mix(in srgb, var(--teal) var(--float-op,70%), transparent);}
+  .frate-btn.good{background:color-mix(in srgb, var(--moss) var(--float-op,70%), transparent);}
+  .frate-btn.hard{background:color-mix(in srgb, var(--ochre) var(--float-op,70%), transparent);color:#2B2620;}
+  .frate-btn.again{background:color-mix(in srgb, var(--red) var(--float-op,70%), transparent);}
   .session-done{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px;}
   .session-done .big{font-family:Georgia,serif;font-size:20px;margin-bottom:8px;}
   .session-done button{margin-top:20px;background:var(--card);color:var(--ink);border:none;padding:10px 22px;border-radius:6px;font-size:13px;cursor:pointer;}
@@ -253,11 +273,13 @@
 <body>
 
 <div id="topbar">
-  <button class="glass-btn backbtn" id="backBtn" style="display:none;"><i class="ti ti-chevron-left"></i></button>
+  <div class="topbar-left"><button class="glass-btn backbtn" id="backBtn" style="display:none;"><i class="ti ti-chevron-left"></i></button></div>
   <div class="title" id="topTitle">Mazos</div>
-  <button class="glass-btn plusbtn" id="captureBtn"><i class="ti ti-pencil"></i></button>
-  <button class="glass-btn plusbtn" id="settingsBtn" style="display:none;"><i class="ti ti-settings"></i></button>
-  <button class="glass-btn plusbtn" id="plusBtn" style="display:none;"><i class="ti ti-plus"></i></button>
+  <div class="topbar-right">
+    <button class="glass-btn plusbtn" id="captureBtn"><i class="ti ti-pencil"></i></button>
+    <button class="glass-btn plusbtn" id="settingsBtn" style="display:none;"><i class="ti ti-settings"></i></button>
+    <button class="glass-btn plusbtn" id="plusBtn" style="display:none;"><i class="ti ti-plus"></i></button>
+  </div>
 </div>
 <div id="content"></div>
 <div id="tabbar">
@@ -278,6 +300,12 @@
     <button class="rate-btn hard" data-g="2">Difícil<span class="d" id="dHard"></span></button>
     <button class="rate-btn good" data-g="3">Bien<span class="d" id="dGood"></span></button>
     <button class="rate-btn easy" data-g="4">Fácil<span class="d" id="dEasy"></span></button>
+  </div>
+  <div class="floating-ratings" id="floatingRatings" style="display:none;">
+    <button class="frate-btn easy" data-g="4">Fácil</button>
+    <button class="frate-btn good" data-g="3">Bien</button>
+    <button class="frate-btn hard" data-g="2">Difícil</button>
+    <button class="frate-btn again" data-g="1">Otra vez</button>
   </div>
 </div>
 
@@ -760,7 +788,7 @@ function runImportFlow(text, forceLevel){
 function openTextPrompt(title, placeholder, defaultValue, onConfirm, desc, confirmLabel){
   let html='<div style="padding:4px 16px 20px;">';
   if(desc) html+='<div style="font-size:12px;color:var(--ink-soft);margin-bottom:12px;line-height:1.5;">'+desc+'</div>';
-  html+='<input type="text" id="promptInput" value="'+String(defaultValue||'').replace(/"/g,'&quot;')+'" placeholder="'+placeholder+'" style="width:100%;padding:12px;border-radius:8px;border:1px solid var(--line);background:#fff;font-size:15px;color:var(--ink);box-sizing:border-box;">'+
+  html+='<input type="text" id="promptInput" value="'+String(defaultValue||'').replace(/"/g,'&quot;')+'" placeholder="'+placeholder+'" style="width:100%;padding:12px;border-radius:8px;border:1px solid var(--line);background:var(--row);font-size:15px;color:var(--ink);box-sizing:border-box;">'+
     '<button id="promptConfirm" style="margin-top:14px;width:100%;padding:12px;border:none;border-radius:8px;background:var(--teal);color:#fff;font-size:14px;font-weight:700;cursor:pointer;">'+(confirmLabel||'Guardar')+'</button>'+
     '</div>';
   openSheet(title, html);
@@ -810,11 +838,34 @@ function applyTheme(){
 function openGeneralSettings(){
   const pref=getThemePref();
   const labelMap={light:'Claro',dark:'Oscuro',auto:'Autom\u00e1tico (seg\u00fan la hora)'};
-  const html=setRow('sun','Tema', labelMap[pref]);
+  const voicePref=getVoicePref();
+  const styleLabelMap={inferior:'Inferior',pulgar:'Pulgar (flotante)'};
+  const respStyle=getResponseStyle();
+  const opacity=getFloatOpacity();
+  let html=setRow('sun','Tema', labelMap[pref])+setRow('microphone','Voz', voicePref||'Predeterminada')+setRow('hand-click','Estilo de respuesta', styleLabelMap[respStyle]);
+  if(respStyle==='pulgar'){
+    html+='<div style="padding:14px 16px 18px;background:var(--row);border-bottom:1px solid var(--line);">'+
+      '<div style="font-size:12px;color:var(--ink-soft);margin-bottom:10px;">Opacidad de controles flotantes: '+opacity+'%</div>'+
+      '<input type="range" id="opacitySlider" min="20" max="100" value="'+opacity+'" style="width:100%;">'+
+      '<div style="font-size:11px;color:var(--ink-soft);margin-top:10px;">Puedes arrastrar el grupo de botones a la posici\u00f3n que te sea m\u00e1s c\u00f3moda durante el repaso.</div>'+
+      '</div>';
+  }
   openSheet('Ajustes', html);
-  document.querySelector('.set-row').onclick=()=>{
+  const rows=document.querySelectorAll('.set-row');
+  rows[0].onclick=()=>{
     openPicker('Tema', [['light','Claro'],['dark','Oscuro'],['auto','Autom\u00e1tico (seg\u00fan la hora)']].map(v=>({label:v[1],value:v[0]})), pref, v=>{ setThemePref(v); openGeneralSettings(); });
   };
+  rows[1].onclick=()=>{
+    ensureVoicesLoaded(voices=>{
+      const options=[{label:'Predeterminada', value:''}].concat(voices.map(v=>({label:v.name+' ('+v.lang+')', value:v.name})));
+      openPicker('Voz', options, voicePref||'', v=>{ setVoicePref(v); openGeneralSettings(); });
+    });
+  };
+  rows[2].onclick=()=>{
+    openPicker('Estilo de respuesta', [['inferior','Inferior'],['pulgar','Pulgar (flotante)']].map(v=>({label:v[1],value:v[0]})), respStyle, v=>{ setResponseStyle(v); openGeneralSettings(); });
+  };
+  const slider=document.getElementById('opacitySlider');
+  if(slider) slider.addEventListener('input', e=>{ setFloatOpacity(parseInt(e.target.value)); updateFloatingOpacity(); });
 }
 
 const plusBtn=document.getElementById('plusBtn');
@@ -982,7 +1033,7 @@ function renderMazos(){
     let pend=0, nvo=0;
     cards.forEach(c=>{ const b=bucketFor(getProgress(c.id)); if(b==='ahora')pend++; if(b==='nvo')nvo++; });
     h+='<div class="deck-row" data-id="'+id+'"><div><div class="name">'+deckName(id)+'</div><div class="sub">'+cards.length+' tarjetas</div></div>'+
-       (pend?'<span class="badge pend">'+pend+' pend.</span>':(nvo?'<span class="badge nvo">'+nvo+' nuevo</span>':''))+'</div>';
+       '<div class="badge-stack">'+(pend?'<span class="badge pend">'+pend+' pend.</span>':'')+(nvo?'<span class="badge nvo">'+nvo+' nuevo</span>':'')+'</div></div>';
   });
   const trashCount=trashedDeckIds().length;
   h+='<div class="deck-row" id="trashRow" style="margin-top:10px;"><div><div class="name" style="font-size:14px;">\ud83d\uddd1\ufe0f Papelera</div><div class="sub">'+(trashCount?trashCount+' mazo(s) eliminado(s)':'vac\u00eda')+'</div></div></div>';
@@ -1055,13 +1106,13 @@ function renderDeck(id){
   h+=setRow('shuffle','Modo de repaso', REVIEW_MODE_LABELS[s.reviewMode]);
   h+=setRow('brain','Retenci\u00f3n FSRS', {0.85:'Ligero 85%',0.9:'Equilibrado 90%',0.95:'Intensivo 95%'}[s.retention]);
   h+=setRow('refresh','Orientaci\u00f3n de la tarjeta', {normal:'Normal',invertido:'Invertido',mixto:'Mixto'}[s.orientation]);
-  h+='<div class="set-row" id="stabRow"><i class="ti ti-arrow-bar-to-down"></i><span class="lbl">Estabilizaci\u00f3n al voltear</span><div class="toggle '+(s.stabilizeOnFlip?'on':'')+'" id="stabToggle"><div class="knob"></div></div></div>';
   h+=setRow('upload','Importar tarjetas a este mazo', '');
   h+=setRow('eraser','Reiniciar progreso', '');
   h+=setRow('trash','Eliminar mazo', '');
 
   const studyPool = activeBucket ? filteredCards.filter(c=>cardMatchesTagFilter(c,s.tagFilter)) : cards.filter(c=>{const b=bucketFor(getProgress(c.id)); return (b==='ahora'||b==='nvo') && cardMatchesTagFilter(c,s.tagFilter);});
-  h+='<div class="sticky-bottom"><div><div class="go"><i class="ti ti-player-play"></i>Repasar'+(activeBucket?' ('+bucketLabel(activeBucket)+')':'')+'</div><div class="est">Tiempo estimado '+estMinutes(studyPool.length)+' min</div></div><span class="count">'+studyPool.length+'</span></div>';
+  const cappedCount = s.perSession==='all' ? studyPool.length : Math.min(studyPool.length, s.perSession);
+  h+='<div class="sticky-bottom"><div><div class="go"><i class="ti ti-player-play"></i>Repasar'+(activeBucket?' ('+bucketLabel(activeBucket)+')':'')+'</div><div class="est">Tiempo estimado '+estMinutes(cappedCount)+' min</div></div><span class="count">'+cappedCount+'</span></div>';
 
   content.innerHTML=h;
 
@@ -1094,7 +1145,6 @@ function renderDeck(id){
       renderDeck(id);
     };
   });
-  document.getElementById('stabToggle').onclick=(e)=>{ e.stopPropagation(); setSetting(id,'stabilizeOnFlip', !s.stabilizeOnFlip); renderDeck(id); };
   content.querySelector('.sticky-bottom').onclick=()=>startStudy(id, activeBucket);
 }
 function setRow(icon,label,val){
@@ -1271,7 +1321,7 @@ function openCardDetail(cardId){
   const art=c.gender?c.gender+' ':'';
   let html='<div style="padding:4px 4px 12px;">';
   html+='<div style="display:flex;align-items:center;gap:8px;"><div style="font-family:Georgia,serif;font-size:22px;font-weight:700;color:var(--ink);">'+(art?'<span class="'+genderClass(c.gender)+'">'+art+'</span>':'')+c.german+'</div>'+
-    '<button class="speak-btn" data-speak="'+String(c.german).replace(/"/g,'&quot;')+'"><i class="ti ti-volume-2"></i></button></div>';
+    '<button class="speak-btn" data-speak="'+String(art+c.german).replace(/"/g,'&quot;')+'"><i class="ti ti-volume-2"></i></button></div>';
   html+='<div style="font-size:15px;color:var(--ink-soft);margin-top:4px;">'+c.english+'</div>';
   html+='<div style="font-size:12px;color:var(--ink-soft);margin-top:8px;">'+wordTypeEmoji(c.wordType)+' '+(WORDTYPE_LABEL[c.wordType]||c.wordType)+' \u00b7 '+topicEmoji(c.topic)+' '+(c.topic||'')+'</div>';
   if(c.example) html+='<div style="font-size:13px;font-style:italic;color:var(--ink-soft);margin-top:10px;">'+c.example+'</div>';
@@ -1432,8 +1482,8 @@ function renderOmni(){
   h+=setRow('shuffle','Modo de repaso', REVIEW_MODE_LABELS[s.reviewMode]);
   h+=setRow('brain','Retenci\u00f3n FSRS', {0.85:'Ligero 85%',0.9:'Equilibrado 90%',0.95:'Intensivo 95%'}[s.retention]);
   h+=setRow('refresh','Orientaci\u00f3n de la tarjeta', {normal:'Normal',invertido:'Invertido',mixto:'Mixto'}[s.orientation]);
-  h+='<div class="set-row" id="omniStabRow"><i class="ti ti-arrow-bar-to-down"></i><span class="lbl">Estabilizaci\u00f3n al voltear</span><div class="toggle '+(s.stabilizeOnFlip?'on':'')+'" id="omniStabToggle"><div class="knob"></div></div></div>';
-  h+='<div class="sticky-bottom"><div><div class="go"><i class="ti ti-player-play"></i>Repasar</div><div class="est">Tiempo estimado '+estMinutes(pool.length)+' min</div></div><span class="count">'+pool.length+'</span></div>';
+  const omniCapped = s.perSession==='all' ? pool.length : Math.min(pool.length, s.perSession);
+  h+='<div class="sticky-bottom"><div><div class="go"><i class="ti ti-player-play"></i>Repasar</div><div class="est">Tiempo estimado '+estMinutes(omniCapped)+' min</div></div><span class="count">'+omniCapped+'</span></div>';
 
   content.innerHTML=h;
   document.querySelectorAll('.set-row').forEach(el=>{
@@ -1450,7 +1500,6 @@ function renderOmni(){
       else if(label==='Orientaci\u00f3n de la tarjeta') openPicker('Orientaci\u00f3n de la tarjeta',[['normal','Normal'],['invertido','Invertido'],['mixto','Mixto']].map(v=>({label:v[1],value:v[0]})), s.orientation, v=>{setSetting('omni','orientation',v); renderOmni();});
     };
   });
-  document.getElementById('omniStabToggle').onclick=(e)=>{ e.stopPropagation(); setSetting('omni','stabilizeOnFlip', !s.stabilizeOnFlip); renderOmni(); };
   content.querySelector('.sticky-bottom').onclick=()=>{
     const finalPool=buildOmniPool(meta,s);
     startStudySession(finalPool, s, {type:'omni'});
@@ -1496,19 +1545,112 @@ document.getElementById('exitStudy').onclick=()=>{
   }
 };
 
+const RESPONSE_STYLE_KEY='dk_response_style_v1';
+function getResponseStyle(){ return loadJSON(RESPONSE_STYLE_KEY, 'inferior'); }
+function setResponseStyle(v){ saveJSON(RESPONSE_STYLE_KEY, v); }
+const FLOAT_OPACITY_KEY='dk_float_opacity_v1';
+function getFloatOpacity(){ return loadJSON(FLOAT_OPACITY_KEY, 70); }
+function setFloatOpacity(v){ saveJSON(FLOAT_OPACITY_KEY, v); }
+const FLOAT_POS_KEY='dk_float_pos_v1';
+function getFloatPos(){ return loadJSON(FLOAT_POS_KEY, null); }
+function setFloatPos(pos){ saveJSON(FLOAT_POS_KEY, pos); }
+function updateFloatingOpacity(){
+  const el=document.getElementById('floatingRatings');
+  if(el) el.style.setProperty('--float-op', getFloatOpacity()+'%');
+}
+function applyFloatPos(){
+  const el=document.getElementById('floatingRatings');
+  if(!el) return;
+  const pos=getFloatPos();
+  if(pos){ el.style.left=pos.left+'px'; el.style.top=pos.top+'px'; el.style.right='auto'; el.style.bottom='auto'; }
+  else{ el.style.left=''; el.style.top=''; el.style.right='16px'; el.style.bottom='calc(env(safe-area-inset-bottom) + 110px)'; }
+}
+let floatingDragMoved=false;
+function setupFloatingDrag(){
+  const el=document.getElementById('floatingRatings');
+  if(!el || el._dragSetup) return;
+  el._dragSetup=true;
+  let startX=0, startY=0, origLeft=0, origTop=0, dragging=false;
+  el.addEventListener('pointerdown', e=>{
+    dragging=true; floatingDragMoved=false;
+    startX=e.clientX; startY=e.clientY;
+    const rect=el.getBoundingClientRect();
+    origLeft=rect.left; origTop=rect.top;
+    try{ el.setPointerCapture(e.pointerId); }catch(err){}
+  });
+  el.addEventListener('pointermove', e=>{
+    if(!dragging) return;
+    const dx=e.clientX-startX, dy=e.clientY-startY;
+    if(Math.abs(dx)>6 || Math.abs(dy)>6){
+      floatingDragMoved=true;
+      const maxLeft=Math.max(4, window.innerWidth-64);
+      const maxTop=Math.max(60, window.innerHeight-64);
+      el.style.left=Math.max(4,Math.min(maxLeft,origLeft+dx))+'px';
+      el.style.top=Math.max(60,Math.min(maxTop,origTop+dy))+'px';
+      el.style.right='auto'; el.style.bottom='auto';
+    }
+  });
+  el.addEventListener('pointerup', ()=>{
+    dragging=false;
+    if(floatingDragMoved){
+      const rect=el.getBoundingClientRect();
+      setFloatPos({left:rect.left, top:rect.top});
+    }
+  });
+  el.addEventListener('pointercancel', ()=>{ dragging=false; });
+  el.querySelectorAll('.frate-btn').forEach(btn=>{
+    btn.addEventListener('click', e=>{
+      e.stopPropagation();
+      if(floatingDragMoved){ floatingDragMoved=false; return; }
+      applyRating(parseInt(btn.dataset.g));
+    });
+  });
+}
+function setRatingsVisible(visible){
+  const style=getResponseStyle();
+  document.getElementById('ratings').classList.toggle('show', visible && style!=='pulgar');
+  const floatEl=document.getElementById('floatingRatings');
+  if(style==='pulgar'){
+    floatEl.style.display = visible ? 'flex' : 'none';
+    if(visible){ setupFloatingDrag(); applyFloatPos(); updateFloatingOpacity(); }
+  } else {
+    floatEl.style.display='none';
+  }
+}
+const VOICE_KEY='dk_voice_v1';
+function getVoicePref(){ return loadJSON(VOICE_KEY, null); }
+function setVoicePref(name){ saveJSON(VOICE_KEY, name||null); }
+function getGermanVoices(){
+  if(!('speechSynthesis' in window)) return [];
+  return speechSynthesis.getVoices().filter(v=>v.lang && v.lang.toLowerCase().indexOf('de')===0);
+}
+function ensureVoicesLoaded(callback){
+  if(!('speechSynthesis' in window)){ callback([]); return; }
+  let voices=getGermanVoices();
+  if(voices.length){ callback(voices); return; }
+  let done=false;
+  const finish=()=>{ if(done) return; done=true; speechSynthesis.removeEventListener('voiceschanged', finish); callback(getGermanVoices()); };
+  speechSynthesis.addEventListener('voiceschanged', finish);
+  setTimeout(finish, 1000);
+}
 function speak(text){
   if(!('speechSynthesis' in window) || !text) return;
   try{
     speechSynthesis.cancel();
     const u=new SpeechSynthesisUtterance(text);
     u.lang='de-DE'; u.rate=0.85;
+    const pref=getVoicePref();
+    if(pref){
+      const match=getGermanVoices().find(v=>v.name===pref);
+      if(match) u.voice=match;
+    }
     speechSynthesis.speak(u);
   }catch(e){}
 }
 function germanWordWithSpeaker(text, gender, artCls, fz){
   const article=gender==='der'?'der ':gender==='die'?'die ':gender==='das'?'das ':'';
   return '<div class="mainword-row"><div class="mainword" style="font-size:'+fz+'px;">'+(article?'<span class="art '+artCls+'">'+article+'</span>':'')+text+'</div>'+
-    '<button class="speak-btn" data-speak="'+String(text).replace(/"/g,'&quot;')+'"><i class="ti ti-volume-2"></i></button></div>';
+    '<button class="speak-btn" data-speak="'+String(article+text).replace(/"/g,'&quot;')+'"><i class="ti ti-volume-2"></i></button></div>';
 }
 function renderStudyCard(){
   clearTimeout(autoFlipTimer);
@@ -1516,7 +1658,7 @@ function renderStudyCard(){
   const body=document.getElementById('studyBody');
   if(studyIdx>=studyQueue.length){
     body.innerHTML='<div class="session-done"><div class="big">Sesi\u00f3n completa</div><div style="font-size:12px;color:var(--chrome-text-soft);">Hiciste '+studyDone+' tarjetas.</div></div>';
-    document.getElementById('ratings').classList.remove('show');
+    setRatingsVisible(false);
     return;
   }
   const c=studyQueue[studyIdx];
@@ -1540,7 +1682,7 @@ function renderStudyCard(){
   flipped=false;
   const cf=document.getElementById('cardFlip');
   cf.addEventListener('click', onCardTap);
-  document.getElementById('ratings').classList.remove('show');
+  setRatingsVisible(false);
   document.querySelectorAll('.speak-btn').forEach(btn=>{
     btn.addEventListener('click', e=>{ e.stopPropagation(); speak(btn.dataset.speak); });
   });
@@ -1557,40 +1699,41 @@ function renderStudyCard(){
   }
 }
 function onCardTap(){
-  if(flipped && studySettings.stabilizeOnFlip) return;
   doFlip();
 }
 function doFlip(){
   clearTimeout(autoFlipTimer);
   flipped=!flipped;
   document.getElementById('cardFlip').classList.toggle('flipped', flipped);
-  document.getElementById('ratings').classList.toggle('show', flipped);
+  setRatingsVisible(flipped);
+}
+function applyRating(g){
+  const c=studyQueue[studyIdx];
+  const prog=getProgress(c.id);
+  const prevAgainCount=againCounts[c.id]||0;
+  const next=computeNext(prog, g, studySettings.retention);
+  let dueDate=next.due;
+  let willRequeue=false;
+  if(g===1){
+    againCounts[c.id]=(againCounts[c.id]||0)+1;
+    if(againCounts[c.id]>=2) dueDate=new Date();
+    else willRequeue=true;
+  }
+  setProgress(c.id, {stability:next.stability, difficulty:next.difficulty, due:dueDate.toISOString(), reps:next.reps, lapses:next.lapses, lastReview:new Date().toISOString()});
+  logReview(c.id, c.level, g, Date.now()-cardShownAt);
+  studyDone++;
+  lastAction={cardId:c.id, prevProgress:prog?Object.assign({},prog):null, prevAgainCount, studyIdxBefore:studyIdx, studyDoneBefore:studyDone-1, pushedToEnd:willRequeue};
+  document.getElementById('undoBtn').style.display='flex';
+  if(willRequeue){
+    studyQueue.push(c);
+  }
+  studyIdx++;
+  renderStudyCard();
 }
 document.querySelectorAll('.rate-btn').forEach(btn=>{
   btn.addEventListener('click', e=>{
     e.stopPropagation();
-    const g=parseInt(btn.dataset.g);
-    const c=studyQueue[studyIdx];
-    const prog=getProgress(c.id);
-    const prevAgainCount=againCounts[c.id]||0;
-    const next=computeNext(prog, g, studySettings.retention);
-    let dueDate=next.due;
-    let willRequeue=false;
-    if(g===1){
-      againCounts[c.id]=(againCounts[c.id]||0)+1;
-      if(againCounts[c.id]>=2) dueDate=new Date();
-      else willRequeue=true;
-    }
-    setProgress(c.id, {stability:next.stability, difficulty:next.difficulty, due:dueDate.toISOString(), reps:next.reps, lapses:next.lapses, lastReview:new Date().toISOString()});
-    logReview(c.id, c.level, g, Date.now()-cardShownAt);
-    studyDone++;
-    lastAction={cardId:c.id, prevProgress:prog?Object.assign({},prog):null, prevAgainCount, studyIdxBefore:studyIdx, studyDoneBefore:studyDone-1, pushedToEnd:willRequeue};
-    document.getElementById('undoBtn').style.display='flex';
-    if(willRequeue){
-      studyQueue.push(c);
-    }
-    studyIdx++;
-    renderStudyCard();
+    applyRating(parseInt(btn.dataset.g));
   });
 });
 function undoLastRating(){
