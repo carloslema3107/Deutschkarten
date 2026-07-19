@@ -135,6 +135,19 @@
   .empty-msg .small{font-size:12px;line-height:1.6;}
 
   .tj-search{display:flex;align-items:center;gap:8px;margin:10px 16px 0;padding:9px 12px;background:var(--row);border-radius:8px;}
+  .cap-form{padding:14px 16px 8px;display:flex;flex-direction:column;gap:8px;}
+  .cap-form input{padding:12px;border-radius:8px;border:1px solid var(--line);background:#fff;font-size:15px;color:var(--ink);box-sizing:border-box;}
+  .cap-form button{padding:12px;border:none;border-radius:8px;background:var(--teal);color:#fff;font-size:14px;font-weight:700;cursor:pointer;}
+  .cap-actions{display:flex;gap:6px;padding:4px 16px 12px;}
+  .cap-actionbtn{flex:1;padding:9px 4px;border:none;border-radius:8px;background:var(--row);color:var(--ink);font-size:10.5px;font-family:'SF Mono',monospace;cursor:pointer;white-space:nowrap;}
+  .cap-actionbtn.cap-danger{background:color-mix(in srgb, var(--red) 20%, var(--row));color:var(--red);}
+  .cap-list{padding-bottom:10px;}
+  .cap-row{display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--row);}
+  .cap-rowtext{flex:1;min-width:0;}
+  .cap-word{font-family:Georgia,serif;font-weight:700;font-size:15px;color:var(--ink);}
+  .cap-translation{font-size:11px;color:var(--ink-soft);margin-top:2px;}
+  .cap-note{font-size:10px;color:var(--ink-soft);font-style:italic;margin-top:2px;}
+  .cap-delete{background:none;border:none;color:var(--ink-soft);font-size:16px;cursor:pointer;padding:4px;flex:0 0 auto;}
   .tj-search i{color:var(--ink-soft);font-size:15px;}
   .tj-search input{flex:1;border:none;background:none;font-size:14px;color:var(--ink);outline:none;}
   .tj-search input::placeholder{color:var(--ink-soft);}
@@ -242,6 +255,7 @@
 <div id="topbar">
   <button class="glass-btn backbtn" id="backBtn" style="display:none;"><i class="ti ti-chevron-left"></i></button>
   <div class="title" id="topTitle">Mazos</div>
+  <button class="glass-btn plusbtn" id="captureBtn"><i class="ti ti-pencil"></i></button>
   <button class="glass-btn plusbtn" id="settingsBtn" style="display:none;"><i class="ti ti-settings"></i></button>
   <button class="glass-btn plusbtn" id="plusBtn" style="display:none;"><i class="ti ti-plus"></i></button>
 </div>
@@ -805,7 +819,133 @@ function openGeneralSettings(){
 
 const plusBtn=document.getElementById('plusBtn');
 const settingsBtn=document.getElementById('settingsBtn');
+const captureBtn=document.getElementById('captureBtn');
 let state={screen:'mazos', deckId:null};
+let captureReturn=null;
+
+/* ---------- Quick capture (Capturas r\u00e1pidas) ---------- */
+const QUICKCAP_KEY='dk_quickcapture_v1';
+function getQuickCaptures(){ return loadJSON(QUICKCAP_KEY, []); }
+function saveQuickCaptures(arr){ saveJSON(QUICKCAP_KEY, arr); }
+function addQuickCapture(word, note){
+  const items=getQuickCaptures();
+  const item={id:'cap-'+Date.now()+'-'+Math.floor(Math.random()*10000), word:word.trim(), note:(note||'').trim(), translation:undefined, capturedAt:new Date().toISOString()};
+  items.push(item);
+  saveQuickCaptures(items);
+  fetchTranslation(item.id, item.word);
+  return item;
+}
+function fetchTranslation(itemId, word){
+  if(typeof fetch!=='function') return;
+  const url='https://api.mymemory.translated.net/get?q='+encodeURIComponent(word)+'&langpair=de|en';
+  fetch(url).then(r=>r.json()).then(data=>{
+    let translation=null;
+    if(data && data.responseData && data.responseData.translatedText && !/NO QUERY SPECIFIED|INVALID/i.test(data.responseData.translatedText)){
+      translation=data.responseData.translatedText;
+    }
+    const items=getQuickCaptures();
+    const it=items.find(x=>x.id===itemId);
+    if(it){ it.translation=translation; saveQuickCaptures(items); if(state.screen==='capture') renderCapture(); }
+  }).catch(()=>{
+    const items=getQuickCaptures();
+    const it=items.find(x=>x.id===itemId);
+    if(it){ it.translation=null; saveQuickCaptures(items); if(state.screen==='capture') renderCapture(); }
+  });
+}
+function deleteQuickCapture(id){ saveQuickCaptures(getQuickCaptures().filter(x=>x.id!==id)); }
+function clearAllQuickCaptures(){ saveQuickCaptures([]); }
+function quickCapturesAsText(){
+  return getQuickCaptures().map(it=>it.word+(it.note?' \u2014 '+it.note:'')+(it.translation?' ('+it.translation+')':'')).join('\n');
+}
+function openCapture(){
+  captureReturn={screen:state.screen, deckId:state.deckId};
+  renderCapture();
+}
+function captureGoBack(){
+  if(!captureReturn){ renderMazos(); return; }
+  const {screen, deckId}=captureReturn;
+  if(screen==='deck') renderDeck(deckId);
+  else if(screen==='tarjetas') renderTarjetas(deckId, {});
+  else if(screen==='stats') renderStats();
+  else if(screen==='omni') renderOmni();
+  else if(screen==='trash') renderTrash();
+  else renderMazos();
+}
+function renderCapture(){
+  state.screen='capture'; state.deckId=null;
+  topTitle.textContent='Capturas r\u00e1pidas';
+  backBtn.style.display='block'; backBtn.onclick=captureGoBack;
+  settingsBtn.style.display='none'; plusBtn.style.display='none'; captureBtn.style.display='none';
+
+  const items=getQuickCaptures().slice().reverse();
+  let h='<div class="cap-form">';
+  h+='<input type="text" id="capWord" placeholder="Palabra o frase en alem\u00e1n" autocomplete="off" autocapitalize="off">';
+  h+='<input type="text" id="capNote" placeholder="Nota (opcional)" autocomplete="off">';
+  h+='<button id="capSave">Guardar</button>';
+  h+='</div>';
+
+  if(items.length){
+    h+='<div class="cap-actions">'+
+      '<button id="capCopyAll" class="cap-actionbtn">Copiar todo</button>'+
+      '<button id="capDownload" class="cap-actionbtn">Descargar .txt</button>'+
+      '<button id="capClearAll" class="cap-actionbtn cap-danger">Vaciar todo</button>'+
+      '</div>';
+    h+='<div class="cap-list">';
+    items.forEach(it=>{
+      const transText = it.translation===undefined ? 'Traduciendo\u2026' : (it.translation || '(sin traducci\u00f3n)');
+      h+='<div class="cap-row"><div class="cap-rowtext"><div class="cap-word">'+it.word+'</div>'+
+        '<div class="cap-translation">'+transText+'</div>'+
+        (it.note?'<div class="cap-note">'+it.note+'</div>':'')+
+        '</div>'+
+        '<button class="speak-btn" data-speak="'+String(it.word).replace(/"/g,'&quot;')+'"><i class="ti ti-volume-2"></i></button>'+
+        '<button class="cap-delete" data-del="'+it.id+'"><i class="ti ti-x"></i></button>'+
+        '</div>';
+    });
+    h+='</div>';
+  } else {
+    h+='<div class="empty-msg"><div class="big">Sin capturas todav\u00eda</div><div class="small">Escribe una palabra arriba para guardarla. Luego podr\u00e1s copiarlas o exportarlas para pas\u00e1rselas a Claude y a\u00f1adirlas a tu anki-german.jsx.</div></div>';
+  }
+
+  content.innerHTML=h;
+
+  const wordEl=document.getElementById('capWord');
+  const noteEl=document.getElementById('capNote');
+  function doSave(){
+    const word=wordEl.value.trim();
+    if(!word) return;
+    addQuickCapture(word, noteEl.value);
+    renderCapture();
+  }
+  document.getElementById('capSave').onclick=doSave;
+  wordEl.addEventListener('keydown', e=>{ if(e.key==='Enter') doSave(); });
+
+  content.querySelectorAll('[data-del]').forEach(el=>el.onclick=()=>{ deleteQuickCapture(el.dataset.del); renderCapture(); });
+  content.querySelectorAll('.speak-btn').forEach(btn=>{
+    btn.addEventListener('click', e=>{ e.stopPropagation(); speak(btn.dataset.speak); });
+  });
+  const copyBtn=document.getElementById('capCopyAll');
+  if(copyBtn) copyBtn.onclick=()=>{
+    const text=quickCapturesAsText();
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(()=>showToast('Copiado')).catch(()=>showToast('No se pudo copiar'));
+    } else showToast('Copiar no est\u00e1 disponible aqu\u00ed');
+  };
+  const dlBtn=document.getElementById('capDownload');
+  if(dlBtn) dlBtn.onclick=()=>{
+    const text=quickCapturesAsText();
+    const blob=new Blob([text], {type:'text/plain'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url; a.download='capturas-deutschkarten.txt';
+    document.body.appendChild(a); a.click();
+    setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+  };
+  const clearBtn=document.getElementById('capClearAll');
+  if(clearBtn) clearBtn.onclick=()=>{
+    openConfirm('Vaciar capturas', 'Esto borrar\u00e1 todas las capturas guardadas. Aseg\u00farate de haberlas copiado o exportado antes.', 'Vaciar todo', ()=>{ clearAllQuickCaptures(); renderCapture(); });
+  };
+}
+captureBtn.onclick=openCapture;
 
 function showToast(msg){
   const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
@@ -833,7 +973,7 @@ function openPicker(title, options, current, onSelect){
 function renderMazos(){
   state.screen='mazos'; state.deckId=null;
   purgeExpiredTrash();
-  topTitle.textContent='Mazos'; backBtn.style.display='none'; plusBtn.style.display='block';
+  topTitle.textContent='Mazos'; backBtn.style.display='none'; plusBtn.style.display='block'; captureBtn.style.display='flex';
   settingsBtn.style.display='block'; settingsBtn.onclick=openGeneralSettings;
   plusBtn.onclick=()=>triggerImport(null);
   let h='<div class="sub-label">Deutsch</div>';
@@ -853,7 +993,7 @@ function renderMazos(){
 function renderTrash(){
   state.screen='trash'; state.deckId=null;
   purgeExpiredTrash();
-  topTitle.textContent='Papelera'; backBtn.style.display='block'; plusBtn.style.display='none'; settingsBtn.style.display='none';
+  topTitle.textContent='Papelera'; backBtn.style.display='block'; plusBtn.style.display='none'; settingsBtn.style.display='none'; captureBtn.style.display='flex';
   backBtn.onclick=renderMazos;
   const trash=getTrash();
   const ids=trashedDeckIds();
@@ -887,7 +1027,7 @@ function estMinutes(n){ return Math.max(1, Math.round(n*8/60)); }
 let deckBucketFilter={};
 function renderDeck(id){
   state.screen='deck'; state.deckId=id;
-  topTitle.textContent=deckName(id); backBtn.style.display='block'; plusBtn.style.display='none';
+  topTitle.textContent=deckName(id); backBtn.style.display='block'; plusBtn.style.display='none'; captureBtn.style.display='flex';
   settingsBtn.style.display='none';
   backBtn.onclick=renderMazos;
   const cards=cardsForLevel(id);
@@ -1024,7 +1164,7 @@ function renderTarjetas(deckId, opts){
   if('bucket' in opts) tarjetasBucket=opts.bucket;
   state.screen='tarjetas'; state.deckId=deckId;
   topTitle.textContent='Tarjetas \u00b7 '+deckName(deckId);
-  backBtn.style.display='block'; plusBtn.style.display='none'; settingsBtn.style.display='none';
+  backBtn.style.display='block'; plusBtn.style.display='none'; settingsBtn.style.display='none'; captureBtn.style.display='flex';
   backBtn.onclick=()=>renderDeck(deckId);
 
   const allInDeck=cardsForLevel(deckId);
@@ -1160,7 +1300,7 @@ function openTagPicker(deckId, topics, selected){
 
 
 function renderStub(title, msg){
-  topTitle.textContent=title; backBtn.style.display='none'; plusBtn.style.display='none';
+  topTitle.textContent=title; backBtn.style.display='none'; plusBtn.style.display='none'; captureBtn.style.display='flex';
   content.innerHTML='<div class="empty-msg"><div class="big">Pr\u00f3ximamente</div><div class="small">'+msg+'</div></div>';
 }
 
@@ -1181,7 +1321,7 @@ function barChart(items){
 }
 function renderStats(){
   state.screen='stats'; state.deckId=null;
-  topTitle.textContent='Estad\u00edsticas'; backBtn.style.display='none'; plusBtn.style.display='none'; settingsBtn.style.display='none';
+  topTitle.textContent='Estad\u00edsticas'; backBtn.style.display='none'; plusBtn.style.display='none'; settingsBtn.style.display='none'; captureBtn.style.display='flex';
   const log=loadJSON(LOG_KEY,[]);
   const map=reviewsByDay();
   const goal=loadJSON('dk_goal_v1',50);
@@ -1269,7 +1409,7 @@ function buildOmniPool(meta, s){
 }
 function renderOmni(){
   state.screen='omni'; state.deckId=null;
-  topTitle.textContent='OmniRepaso'; backBtn.style.display='none'; plusBtn.style.display='none'; settingsBtn.style.display='none';
+  topTitle.textContent='OmniRepaso'; backBtn.style.display='none'; plusBtn.style.display='none'; settingsBtn.style.display='none'; captureBtn.style.display='flex';
   let meta=getOmniMeta();
   const avail=decksForPeriod(meta.period);
   meta.decks=meta.decks.filter(d=>avail.indexOf(d)>=0);
