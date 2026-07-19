@@ -83,6 +83,31 @@
   .empty-msg .big{font-family:Georgia,serif;font-size:18px;color:var(--ink);margin-bottom:6px;}
   .empty-msg .small{font-size:12px;line-height:1.6;}
 
+  .tj-toolbar{display:flex;align-items:center;justify-content:space-between;padding:10px 16px 4px;gap:8px;}
+  .tj-viewtoggle{display:flex;gap:4px;background:var(--row);border-radius:6px;padding:2px;}
+  .tj-vbtn{border:none;background:none;padding:6px 10px;border-radius:5px;color:var(--ink-soft);cursor:pointer;}
+  .tj-vbtn.active{background:var(--wood);color:var(--card);}
+  .tj-chip{font-family:'SF Mono',monospace;font-size:11px;background:var(--red);color:#fff;padding:4px 8px;border-radius:10px;display:flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap;}
+  .tj-alpha{display:flex;gap:6px;padding:8px 16px;overflow-x:auto;}
+  .tj-letter{font-family:'SF Mono',monospace;font-size:12px;color:var(--ink-soft);background:var(--row);padding:4px 9px;border-radius:10px;cursor:pointer;flex:0 0 auto;}
+  .tj-letter.active{background:var(--teal);color:#fff;}
+  .tj-letter.tj-clear{background:var(--red);color:#fff;}
+  .tj-list{padding-bottom:10px;}
+  .tj-row{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--row);cursor:pointer;}
+  .tj-dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto;}
+  .tj-rowtext{flex:1;min-width:0;}
+  .tj-german{font-family:Georgia,serif;font-weight:700;font-size:15px;color:var(--ink);}
+  .tj-english{font-size:11px;color:var(--ink-soft);}
+  .tj-emoji{font-size:15px;}
+  .tj-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:6px 16px 16px;}
+  .tj-card{background:var(--row);border-radius:8px;overflow:hidden;cursor:pointer;}
+  .tj-cardbadge{font-family:'SF Mono',monospace;font-size:9px;font-weight:700;letter-spacing:.06em;color:#fff;text-align:center;padding:4px 0;}
+  .tj-cardtop{padding:10px;}
+  .tj-cardword{font-family:Georgia,serif;font-weight:700;font-size:15px;color:var(--ink);text-align:center;}
+  .tj-carddivider{height:1px;background:var(--line);margin:8px 0;}
+  .tj-cardenglish{font-size:12px;font-weight:700;color:var(--ink);text-align:center;}
+  .tj-cardmeta{margin-top:8px;font-size:10px;color:var(--ink-soft);text-align:center;line-height:1.6;}
+
   #tabbar{display:flex;background:var(--wood);border-top:1px solid rgba(255,255,255,.1);flex:0 0 auto;}
   .tab-btn{flex:1;background:none;border:none;padding:8px 4px 10px;color:#c9a876;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;}
   .tab-btn.active{color:var(--card);}
@@ -108,7 +133,8 @@
   .face.back{transform:rotateY(180deg);background:var(--row);}
   .wtype{font-family:'SF Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--red);margin-bottom:8px;}
   .mainword{font-family:Georgia,serif;font-weight:700;color:var(--ink);line-height:1.25;}
-  .art{color:var(--teal);font-weight:400;}
+  .art{font-weight:400;}
+  .art-der{color:var(--blue);} .art-die{color:var(--red);} .art-das{color:var(--moss);}
   .topictag{margin-top:12px;font-family:'SF Mono',monospace;font-size:10px;color:var(--ink-soft);}
   .exsent{font-size:13px;color:var(--ink-soft);font-style:italic;margin-top:12px;line-height:1.4;}
   .taphint{position:absolute;bottom:12px;font-family:'SF Mono',monospace;font-size:9px;color:var(--ink-soft);opacity:.6;text-transform:uppercase;}
@@ -180,6 +206,27 @@ function loadJSON(k,f){ try{ const v=localStorage.getItem(k); return v?JSON.pars
 function saveJSON(k,v){ localStorage.setItem(k, JSON.stringify(v)); }
 
 const DECKS=['A1','A2','B1.1','B1.2'];
+const REGISTRY_KEY='dk_deck_registry_v1';
+function getRegistry(){
+  let r=loadJSON(REGISTRY_KEY,null);
+  if(!r){ r=DECKS.map(id=>({id,name:id})); saveJSON(REGISTRY_KEY,r); }
+  let changed=false;
+  DECKS.forEach(id=>{ if(!r.find(d=>d.id===id)){ r.push({id,name:id}); changed=true; } });
+  if(changed) saveJSON(REGISTRY_KEY,r);
+  return r;
+}
+function saveRegistry(r){ saveJSON(REGISTRY_KEY,r); }
+function allDeckIds(){ return getRegistry().map(d=>d.id); }
+function deckName(id){ const d=getRegistry().find(x=>x.id===id); return d?d.name:id; }
+function renameDeck(id,newName){ const r=getRegistry(); const d=r.find(x=>x.id===id); if(d && newName && newName.trim()){ d.name=newName.trim(); saveRegistry(r); } }
+function addDeck(name){
+  const r=getRegistry();
+  let base=(name||'mazo').trim().replace(/\s+/g,'-')||'mazo', id=base, n=1;
+  while(r.find(d=>d.id===id)){ id=base+'-'+(++n); }
+  r.push({id, name:(name||id).trim()||id});
+  saveRegistry(r);
+  return id;
+}
 function allCards(){ return CARDS.concat(loadJSON(CUSTOM_KEY,[])); }
 function cardsForLevel(lv){ return allCards().filter(c=>c.level===lv); }
 
@@ -221,7 +268,7 @@ function last7(){
 }
 function aggregateBuckets(){
   const buckets={nvo:0,ahora:0,'24h':0,manana:0,sem:0,futuro:0};
-  DECKS.forEach(id=>{ cardsForLevel(id).forEach(c=>{ buckets[bucketFor(getProgress(c.id))]++; }); });
+  allDeckIds().forEach(id=>{ cardsForLevel(id).forEach(c=>{ buckets[bucketFor(getProgress(c.id))]++; }); });
   return buckets;
 }
 function formatDuration(ms){
@@ -292,14 +339,41 @@ function bucketFor(prog){
   return 'futuro';
 }
 
-function parseCSV(text){
+const TOPIC_EMOJI={'Alltag':'\ud83c\udfd9\ufe0f','Wetter':'\ud83c\udf26\ufe0f','Essen & Trinken':'\ud83c\udf7d\ufe0f',
+  'Hobbys':'\ud83c\udfb8','Haus & Haushalt':'\ud83c\udfe0','Begr\u00fc\u00dfung':'\ud83d\udc4b',
+  'Kleidung & Farben':'\ud83d\udc57','Familie':'\ud83d\udc6a','Frase':'\ud83d\udcac',
+  'Berufe & Arbeit':'\ud83d\udcbc','Zeit & Datum':'\ud83d\udcc5','Otro':'\ud83d\udccc',
+  'Kommunikation':'\ud83d\udcac','Wohnen':'\ud83c\udfe1','Gef\u00fchle':'\u2764\ufe0f',
+  'Umwelt':'\ud83c\udf0d','Natur':'\ud83c\udf3f','Arbeit':'\ud83d\udcbc'};
+const WORDTYPE_EMOJI={noun:'\ud83d\udce6',verb:'\u26a1',adjective:'\ud83c\udfa8',adverb:'\u27a1\ufe0f',preposition:'\ud83d\udd17',phrase:'\ud83d\udcac',other:'\ud83d\udccc'};
+const WORDTYPE_LABEL={noun:'Sustantivo',verb:'Verbo',adjective:'Adjetivo',adverb:'Adverbio',preposition:'Preposici\u00f3n',phrase:'Frase',other:'Otro'};
+function topicEmoji(t){ return TOPIC_EMOJI[t] || '\ud83c\udff7\ufe0f'; }
+function wordTypeEmoji(w){ return WORDTYPE_EMOJI[w] || '\ud83d\udccc'; }
+function genderClass(g){ return g==='der'?'art-der':g==='die'?'art-die':g==='das'?'art-das':''; }
+function genderDotColor(g){ return g==='der'?'var(--blue)':g==='die'?'var(--red)':g==='das'?'var(--moss)':'var(--ink-soft)'; }
+function buildTagOptions(cards){
+  const topics=[...new Set(cards.map(c=>c.topic).filter(Boolean))].map(t=>({key:'topic:'+t, label:topicEmoji(t)+' '+t}));
+  const types=[...new Set(cards.map(c=>c.wordType).filter(Boolean))].map(w=>({key:'type:'+w, label:wordTypeEmoji(w)+' '+(WORDTYPE_LABEL[w]||w)}));
+  return topics.concat(types);
+}
+function cardMatchesTagFilter(c, tagFilter){
+  if(!tagFilter || !tagFilter.length) return true;
+  return tagFilter.some(t=>{
+    if(t.indexOf('topic:')===0) return c.topic===t.slice(6);
+    if(t.indexOf('type:')===0) return c.wordType===t.slice(5);
+    return false;
+  });
+}
+
+function parseCSV(text, delim){
+  delim = delim || ',';
   const rows=[]; let row=[]; let field=''; let q=false;
   for(let i=0;i<text.length;i++){
     const c=text[i];
     if(q){ if(c==='"'){ if(text[i+1]==='"'){field+='"';i++;} else q=false; } else field+=c; }
     else{
       if(c==='"') q=true;
-      else if(c===','){ row.push(field); field=''; }
+      else if(c===delim){ row.push(field); field=''; }
       else if(c==='\n'){ row.push(field); rows.push(row); row=[]; field=''; }
       else if(c!=='\r') field+=c;
     }
@@ -307,12 +381,44 @@ function parseCSV(text){
   if(field!==''||row.length){ row.push(field); rows.push(row); }
   return rows;
 }
-const HEADER_ALIASES={german:'german',deutsch:'german',english:'english',ingles:'english',wordtype:'wordType',tipo:'wordType',
-  topic:'topic',tema:'topic',gender:'gender',articulo:'gender',genero:'gender',plural:'plural',
-  example:'example',ejemplo:'example',beispiel:'example',notes:'notes',notas:'notes',level:'level',nivel:'level'};
+function detectDelimiter(text){
+  const firstLine=(text.split(/\r?\n/)[0]||'');
+  const counts={',':(firstLine.match(/,/g)||[]).length, ';':(firstLine.match(/;/g)||[]).length, '\t':(firstLine.match(/\t/g)||[]).length};
+  let best=',', bestN=counts[','];
+  if(counts[';']>bestN){best=';'; bestN=counts[';'];}
+  if(counts['\t']>bestN){best='\t'; bestN=counts['\t'];}
+  return best;
+}
+const HEADER_ALIASES={german:'german',deutsch:'german',wort:'german',
+  english:'english',ingles:'english',englisch:'english',
+  wordtype:'wordType',tipo:'wordType',tipodepalabra:'wordType',
+  topic:'topic',tema:'topic',categoria:'topic',
+  gender:'gender',articulo:'gender',genero:'gender',
+  plural:'plural',pp:'pp',partizip:'pp',
+  auxiliaryverb:'auxiliaryVerb',verboauxiliar:'auxiliaryVerb',
+  separable:'separable',separableprefix:'separablePrefix',prefijoseparable:'separablePrefix',
+  presentconj:'presentConj',praesens:'presentConj',
+  praeteritum:'praeteritum',preterito:'praeteritum',
+  verbcase:'verbCase',casoverbal:'verbCase',
+  example:'example',ejemplo:'example',beispiel:'example',
+  notes:'notes',notas:'notes',
+  komparativ:'komparativ',superlativ:'superlativ',
+  conjtype:'conjType',tipodeconjugacion:'conjType',
+  prepcase:'prepCase',casopreposicion:'prepCase',
+  level:'level',nivel:'level'};
 function normHeader(h){
-  const k=h.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const k=h.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z]/g,'');
   return HEADER_ALIASES[k]||null;
+}
+function normalizeLevel(v){
+  if(!v) return null;
+  const k=v.trim().toLowerCase().replace(/[\s._-]+/g,'');
+  const reg=getRegistry();
+  const byId=reg.find(d=>d.id.toLowerCase().replace(/[\s._-]/g,'')===k);
+  if(byId) return byId.id;
+  const byName=reg.find(d=>d.name.toLowerCase().replace(/[\s._-]/g,'')===k);
+  if(byName) return byName.id;
+  return null;
 }
 function normalizeGermanField(str){
   let s=(str||'').trim();
@@ -321,29 +427,86 @@ function normalizeGermanField(str){
   if(m){ gender=m[1].toLowerCase(); s=s.slice(m[0].length); }
   return {german:s, gender};
 }
-function importCSV(text, forceLevel){
-  const rows=parseCSV(text).filter(r=>r.some(c=>c.trim()!==''));
-  if(!rows.length) return {added:0,skipped:0,invalid:0};
+function parseAndGroupCSV(text, forceLevel){
+  const delim=detectDelimiter(text);
+  const rows=parseCSV(text, delim).filter(r=>r.some(c=>c.trim()!==''));
+  if(!rows.length) return {groups:[], invalidRows:0};
   const headers=rows[0].map(normHeader);
-  const custom=loadJSON(CUSTOM_KEY,[]);
-  const existing=allCards();
-  let added=0, skipped=0, invalid=0;
+  const groups={};
+  let invalidRows=0;
   for(let i=1;i<rows.length;i++){
     const r=rows[i]; const obj={};
     headers.forEach((h,idx)=>{ if(h) obj[h]=(r[idx]||'').trim(); });
-    const level=forceLevel || obj.level;
-    if(!level || DECKS.indexOf(level)===-1){ invalid++; continue; }
-    if(!obj.german){ invalid++; continue; }
+    if(!obj.german){ invalidRows++; continue; }
+    let levelId=null, rawLevel=null;
+    if(forceLevel){ levelId=forceLevel; }
+    else{ rawLevel=obj.level; levelId=normalizeLevel(rawLevel); }
+    const key=levelId?('ID:'+levelId):('RAW:'+(rawLevel||'(sin nivel)'));
+    if(!groups[key]) groups[key]={levelId, rawLevel, rows:[]};
+    groups[key].rows.push(obj);
+  }
+  return {groups:Object.values(groups), invalidRows};
+}
+function insertRows(rows, levelId){
+  const custom=loadJSON(CUSTOM_KEY,[]);
+  const existing=allCards();
+  let added=0, skipped=0;
+  rows.forEach((obj,i)=>{
     const norm=normalizeGermanField(obj.german);
     const gender=obj.gender||norm.gender||null;
-    const dup=existing.concat(custom).some(c=>c.level===level && c.german.trim().toLowerCase()===norm.german.toLowerCase());
-    if(dup){ skipped++; continue; }
-    custom.push({id:'custom-'+level+'-'+Date.now()+'-'+i, german:norm.german, english:obj.english||'', wordType:obj.wordType||'other',
-      level, topic:obj.topic||'', gender, example:obj.example||'', notes:obj.notes||''});
+    const dup=existing.concat(custom).some(c=>c.level===levelId && c.german.trim().toLowerCase()===norm.german.toLowerCase());
+    if(dup){ skipped++; return; }
+    const card=Object.assign({}, obj);
+    card.id='custom-'+levelId+'-'+Date.now()+'-'+i+'-'+Math.floor(Math.random()*10000);
+    card.level=levelId; card.german=norm.german; card.gender=gender;
+    if(!card.wordType) card.wordType='other';
+    custom.push(card);
     added++;
-  }
+  });
   saveJSON(CUSTOM_KEY, custom);
-  return {added,skipped,invalid};
+  return {added, skipped};
+}
+function runImportFlow(text, forceLevel){
+  const {groups, invalidRows}=parseAndGroupCSV(text, forceLevel);
+  let totalAdded=0, totalSkipped=0, totalInvalid=invalidRows;
+  const matched=groups.filter(g=>g.levelId);
+  const unmatched=groups.filter(g=>!g.levelId);
+  matched.forEach(g=>{ const res=insertRows(g.rows, g.levelId); totalAdded+=res.added; totalSkipped+=res.skipped; });
+
+  function finishImport(){
+    let msg='Importadas '+totalAdded+' \u00b7 Duplicadas '+totalSkipped+' \u00b7 Inv\u00e1lidas '+totalInvalid;
+    if(totalInvalid>0) msg+=' (revisa la columna "german")';
+    showToast(msg);
+    if(state.screen==='deck') renderDeck(state.deckId);
+    else renderMazos();
+  }
+  function processUnmatched(idx){
+    if(idx>=unmatched.length){ finishImport(); return; }
+    const g=unmatched[idx];
+    openTextPrompt('Mazo nuevo', 'Nombre del mazo', g.rawLevel||'Mazo nuevo', (name)=>{
+      if(name){
+        const id=addDeck(name);
+        const res=insertRows(g.rows, id);
+        totalAdded+=res.added; totalSkipped+=res.skipped;
+      } else { totalInvalid+=g.rows.length; }
+      processUnmatched(idx+1);
+    }, 'El CSV incluye tarjetas de un nivel "'+(g.rawLevel||'(sin especificar)')+'" que no existe todav\u00eda. \u00bfC\u00f3mo quieres llamar a este mazo? Podr\u00e1s cambiarle el nombre despu\u00e9s.');
+  }
+  if(unmatched.length) processUnmatched(0); else finishImport();
+}
+function openTextPrompt(title, placeholder, defaultValue, onConfirm, desc){
+  let html='<div style="padding:4px 16px 20px;">';
+  if(desc) html+='<div style="font-size:12px;color:var(--ink-soft);margin-bottom:12px;line-height:1.5;">'+desc+'</div>';
+  html+='<input type="text" id="promptInput" value="'+String(defaultValue||'').replace(/"/g,'&quot;')+'" placeholder="'+placeholder+'" style="width:100%;padding:12px;border-radius:8px;border:1px solid var(--line);background:#fff;font-size:15px;color:var(--ink);box-sizing:border-box;">'+
+    '<button id="promptConfirm" style="margin-top:14px;width:100%;padding:12px;border:none;border-radius:8px;background:var(--teal);color:#fff;font-size:14px;font-weight:700;cursor:pointer;">Guardar</button>'+
+    '</div>';
+  openSheet(title, html);
+  const inputEl=document.getElementById('promptInput');
+  document.getElementById('promptConfirm').onclick=()=>{
+    const val=inputEl.value.trim();
+    closeSheet();
+    onConfirm(val);
+  };
 }
 function triggerImport(forceLevel){
   const input=document.createElement('input');
@@ -351,11 +514,7 @@ function triggerImport(forceLevel){
   input.onchange=e=>{
     const file=e.target.files[0]; if(!file) return;
     const reader=new FileReader();
-    reader.onload=ev=>{
-      const res=importCSV(ev.target.result, forceLevel);
-      showToast('Importadas '+res.added+' \u00b7 Duplicadas '+res.skipped+' \u00b7 Inv\u00e1lidas '+res.invalid);
-      if(state.screen==='deck') renderDeck(state.deckId); else renderMazos();
-    };
+    reader.onload=ev=>{ runImportFlow(ev.target.result, forceLevel); };
     reader.readAsText(file);
   };
   input.click();
@@ -395,11 +554,11 @@ function renderMazos(){
   topTitle.textContent='Mazos'; backBtn.style.display='none'; plusBtn.style.display='block';
   plusBtn.onclick=()=>triggerImport(null);
   let h='<div class="sub-label">Deutsch</div>';
-  DECKS.forEach(id=>{
+  allDeckIds().forEach(id=>{
     const cards=cardsForLevel(id);
     let pend=0, nvo=0;
     cards.forEach(c=>{ const b=bucketFor(getProgress(c.id)); if(b==='ahora')pend++; if(b==='nvo')nvo++; });
-    h+='<div class="deck-row" data-id="'+id+'"><div><div class="name">'+id+'</div><div class="sub">'+cards.length+' tarjetas</div></div>'+
+    h+='<div class="deck-row" data-id="'+id+'"><div><div class="name">'+deckName(id)+'</div><div class="sub">'+cards.length+' tarjetas</div></div>'+
        (pend?'<span class="badge pend">'+pend+' pend.</span>':(nvo?'<span class="badge nvo">'+nvo+' nuevo</span>':''))+'</div>';
   });
   content.innerHTML=h;
@@ -410,7 +569,7 @@ function estMinutes(n){ return Math.max(1, Math.round(n*8/60)); }
 
 function renderDeck(id){
   state.screen='deck'; state.deckId=id;
-  topTitle.textContent=id; backBtn.style.display='block'; plusBtn.style.display='none';
+  topTitle.textContent=deckName(id); backBtn.style.display='block'; plusBtn.style.display='none';
   backBtn.onclick=renderMazos;
   const cards=cardsForLevel(id);
   const buckets={nvo:0,ahora:0,'24h':0,manana:0,sem:0,futuro:0};
@@ -419,12 +578,14 @@ function renderDeck(id){
   const order=[['nvo','Nvo','--purple'],['ahora','Ahora','--red'],['24h','<24h','--lightred'],['manana','Ma\u00f1ana','--ochre'],['sem','<1sem','--blue'],['futuro','Futuro','--moss']];
   let h='<div class="hist">'+order.map(o=>{
     const v=buckets[o[0]]; const hpx=Math.max(3,Math.round((v/maxB)*80));
-    return '<div class="bar-wrap"><span class="val">'+v+'</span><div class="bar" style="height:'+hpx+'px;background:var('+o[2]+');"></div><span class="lbl">'+o[1]+'</span></div>';
+    return '<div class="bar-wrap" data-bucket="'+o[0]+'" style="cursor:pointer;"><span class="val">'+v+'</span><div class="bar" style="height:'+hpx+'px;background:var('+o[2]+');"></div><span class="lbl">'+o[1]+'</span></div>';
   }).join('')+'</div>';
 
   const s=getSettings(id);
-  const topics=[...new Set(cards.map(c=>c.topic).filter(Boolean))];
+  const tagOptions=buildTagOptions(cards);
   const selTopics=s.tagFilter&&s.tagFilter.length?s.tagFilter:[];
+  h+=setRow('cards','Ver tarjetas', cards.length+' en total');
+  h+=setRow('edit','Renombrar mazo', deckName(id));
   h+=setRow('tag','Etiquetas', selTopics.length? selTopics.length+' seleccionadas':'Ninguno');
   h+=setRow('copy','Tarjetas por sesi\u00f3n', s.perSession==='all'?'Todo':s.perSession);
   h+=setRow('typography','Tama\u00f1o de fuente', s.fontSize+'px');
@@ -443,7 +604,9 @@ function renderDeck(id){
   document.querySelectorAll('.set-row').forEach(el=>{
     el.onclick=()=>{
       const label=el.dataset.label;
-      if(label==='Etiquetas') openTagPicker(id, topics, selTopics);
+      if(label==='Ver tarjetas') renderTarjetas(id, {bucket:null});
+      else if(label==='Renombrar mazo') openTextPrompt('Renombrar mazo', 'Nombre del mazo', deckName(id), (name)=>{ if(name) renameDeck(id,name); renderDeck(id); });
+      else if(label==='Etiquetas') openMultiPicker('Etiquetas', tagOptions, selTopics, sel=>{ setSetting(id,'tagFilter',sel); renderDeck(id); });
       else if(label==='Tarjetas por sesi\u00f3n') openPicker('Tarjetas por sesi\u00f3n',[10,20,30,50,100,'all'].map(v=>({label:v==='all'?'Todo':String(v),value:String(v)})), String(s.perSession), v=>{setSetting(id,'perSession', v==='all'?'all':parseInt(v)); renderDeck(id);});
       else if(label==='Tama\u00f1o de fuente') openPicker('Tama\u00f1o de fuente',[18,20,22,24,26,28,32].map(v=>({label:v+'px',value:String(v)})), String(s.fontSize), v=>{setSetting(id,'fontSize',parseInt(v)); renderDeck(id);});
       else if(label==='Temporizador de volteo autom\u00e1tico') openPicker('Temporizador de volteo autom\u00e1tico',[0,5,10,15,20].map(v=>({label:v?v+'s':'Apagado',value:String(v)})), String(s.autoFlip), v=>{setSetting(id,'autoFlip',parseInt(v)); renderDeck(id);});
@@ -453,15 +616,141 @@ function renderDeck(id){
       else if(label==='Importar tarjetas a este mazo') triggerImport(id);
     };
   });
+  content.querySelectorAll('.hist .bar-wrap').forEach(el=>{
+    el.onclick=()=>renderTarjetas(id, {bucket:el.dataset.bucket});
+  });
   document.getElementById('stabToggle').onclick=(e)=>{ e.stopPropagation(); setSetting(id,'stabilizeOnFlip', !s.stabilizeOnFlip); renderDeck(id); };
   content.querySelector('.sticky-bottom').onclick=()=>startStudy(id);
 }
 function setRow(icon,label,val){
   return '<div class="set-row" data-label="'+label+'"><i class="ti ti-'+icon+'"></i><span class="lbl">'+label+'</span><span class="val">'+val+'</span><i class="ti ti-chevron-right chev"></i></div>';
 }
+
+/* ---------- Tarjetas browser ---------- */
+let tarjetasView='list', tarjetasLetter=null, tarjetasBucket=null, tarjetasDeckId=null, tarjetasSort='alpha-asc';
+function letterOf(w){ return (w||'?').trim().charAt(0).toUpperCase(); }
+function bucketLabel(b){ return {nvo:'Nvo',ahora:'Ahora','24h':'<24h',manana:'Ma\u00f1ana',sem:'<1sem',futuro:'Futuro'}[b]||b; }
+function bucketColorVar(b){ return {nvo:'--purple',ahora:'--red','24h':'--lightred',manana:'--ochre',sem:'--blue',futuro:'--moss'}[b]||'--line'; }
+const SORT_LABELS={'alpha-asc':'Alfab\u00e9tico \u25b2','alpha-desc':'Alfab\u00e9tico \u25bc','created-asc':'Creado \u25b2','created-desc':'Creado \u25bc','review-asc':'\u00daltimo repaso \u25b2','review-desc':'\u00daltimo repaso \u25bc'};
+function sortCards(cards, mode){
+  const arr=cards.slice();
+  if(mode==='alpha-asc') arr.sort((a,b)=>a.german.localeCompare(b.german,'de'));
+  else if(mode==='alpha-desc') arr.sort((a,b)=>b.german.localeCompare(a.german,'de'));
+  else if(mode==='created-asc') arr.sort((a,b)=>a.id.localeCompare(b.id));
+  else if(mode==='created-desc') arr.sort((a,b)=>b.id.localeCompare(a.id));
+  else{
+    arr.sort((a,b)=>{
+      const pa=getProgress(a.id), pb=getProgress(b.id);
+      const da=pa?new Date(pa.lastReview):new Date(0), db=pb?new Date(pb.lastReview):new Date(0);
+      return mode==='review-asc' ? da-db : db-da;
+    });
+  }
+  return arr;
+}
+function cardMetaParts(c){
+  const parts=[];
+  if(c.wordType==='verb'){
+    if(c.separable && c.separable!=='false' && c.separable!=='no' && c.separable!=='0') parts.push(['Trennbar'+(c.separablePrefix?' ('+c.separablePrefix+'-)':''), null]);
+    if(c.verbCase) parts.push(['Kasus: '+c.verbCase, caseColor(c.verbCase)]);
+    if(c.pp) parts.push(['PP: '+(c.auxiliaryVerb?c.auxiliaryVerb+' ':'')+c.pp, null]);
+  } else if(c.wordType==='noun'){
+    if(c.plural) parts.push(['Plural: '+c.plural, null]);
+  } else if(c.wordType==='preposition'){
+    if(c.prepCase) parts.push(['Kasus: '+c.prepCase, caseColor(c.prepCase)]);
+  } else if(c.wordType==='adjective'){
+    if(c.komparativ) parts.push([c.komparativ+(c.superlativ?' / '+c.superlativ:''), null]);
+  }
+  return parts;
+}
+function caseColor(v){
+  const k=(v||'').toLowerCase();
+  if(k.indexOf('akkusativ')>=0) return 'var(--red)';
+  if(k.indexOf('dativ')>=0) return 'var(--moss)';
+  if(k.indexOf('genitiv')>=0) return 'var(--purple)';
+  if(k.indexOf('nominativ')>=0) return 'var(--blue)';
+  return 'var(--ink-soft)';
+}
+
+function renderTarjetas(deckId, opts){
+  opts=opts||{};
+  if(deckId!==tarjetasDeckId){ tarjetasDeckId=deckId; tarjetasLetter=null; tarjetasBucket=null; }
+  if('bucket' in opts) tarjetasBucket=opts.bucket;
+  state.screen='tarjetas'; state.deckId=deckId;
+  topTitle.textContent='Tarjetas \u00b7 '+deckName(deckId);
+  backBtn.style.display='block'; plusBtn.style.display='none';
+  backBtn.onclick=()=>renderDeck(deckId);
+
+  const allInDeck=cardsForLevel(deckId);
+  let cards=allInDeck;
+  if(tarjetasBucket) cards=cards.filter(c=>bucketFor(getProgress(c.id))===tarjetasBucket);
+  if(tarjetasLetter) cards=cards.filter(c=>letterOf(c.german)===tarjetasLetter);
+  cards=sortCards(cards, tarjetasSort);
+  const letters=[...new Set(allInDeck.map(c=>letterOf(c.german)))].sort();
+
+  let h='<div class="tj-toolbar"><div class="tj-viewtoggle">'+
+    '<button class="tj-vbtn'+(tarjetasView==='list'?' active':'')+'" data-v="list"><i class="ti ti-list"></i></button>'+
+    '<button class="tj-vbtn'+(tarjetasView==='grid'?' active':'')+'" data-v="grid"><i class="ti ti-layout-grid"></i></button></div>'+
+    '<button class="tj-vbtn" id="sortBtn" style="background:var(--row);"><i class="ti ti-arrows-sort"></i></button>'+
+    (tarjetasBucket?'<div class="tj-chip" id="clearBucket">'+bucketLabel(tarjetasBucket)+' <i class="ti ti-x"></i></div>':'')+
+    '</div>';
+  h+='<div class="tj-alpha">'+letters.map(l=>'<span class="tj-letter'+(tarjetasLetter===l?' active':'')+'" data-l="'+l+'">'+l+'</span>').join('')+
+    (tarjetasLetter?'<span class="tj-letter tj-clear" id="clearLetter">\u2715</span>':'')+'</div>';
+
+  if(!cards.length){
+    h+='<div class="empty-msg"><div class="big">Sin tarjetas</div><div class="small">No hay tarjetas con este filtro.</div></div>';
+  } else if(tarjetasView==='list'){
+    h+='<div class="tj-list">'+cards.map(tjListRow).join('')+'</div>';
+  } else {
+    h+='<div class="tj-grid">'+cards.map(tjGridCard).join('')+'</div>';
+  }
+  content.innerHTML=h;
+
+  content.querySelectorAll('.tj-vbtn[data-v]').forEach(b=>b.onclick=()=>{ tarjetasView=b.dataset.v; renderTarjetas(deckId,{}); });
+  document.getElementById('sortBtn').onclick=()=>{
+    openPicker('Ordenar por', Object.keys(SORT_LABELS).map(k=>({label:SORT_LABELS[k],value:k})), tarjetasSort, v=>{ tarjetasSort=v; renderTarjetas(deckId,{}); });
+  };
+  const cb=document.getElementById('clearBucket'); if(cb) cb.onclick=()=>{ tarjetasBucket=null; renderTarjetas(deckId,{bucket:null}); };
+  const cl=document.getElementById('clearLetter'); if(cl) cl.onclick=()=>{ tarjetasLetter=null; renderTarjetas(deckId,{}); };
+  content.querySelectorAll('.tj-letter[data-l]').forEach(el=>el.onclick=()=>{ tarjetasLetter=el.dataset.l; renderTarjetas(deckId,{}); });
+  content.querySelectorAll('[data-card-id]').forEach(el=>el.onclick=()=>openCardDetail(el.dataset.cardId));
+}
+function tjListRow(c){
+  const art=c.gender?c.gender+' ':'';
+  return '<div class="tj-row" data-card-id="'+c.id+'"><span class="tj-dot" style="background:'+genderDotColor(c.gender)+';"></span>'+
+    '<div class="tj-rowtext"><div class="tj-german">'+(art?'<span class="'+genderClass(c.gender)+'">'+art+'</span>':'')+c.german+'</div>'+
+    '<div class="tj-english">'+c.english+'</div></div>'+
+    '<span class="tj-emoji">'+topicEmoji(c.topic)+'</span></div>';
+}
+function tjGridCard(c){
+  const art=c.gender?c.gender+' ':'';
+  const b=bucketFor(getProgress(c.id));
+  const meta=cardMetaParts(c);
+  return '<div class="tj-card" data-card-id="'+c.id+'">'+
+    '<div class="tj-cardbadge" style="background:var('+bucketColorVar(b)+');">'+bucketLabel(b).toUpperCase()+'</div>'+
+    '<div class="tj-cardtop">'+
+    '<div class="tj-cardword">'+(art?'<span class="'+genderClass(c.gender)+'">'+art+'</span>':'')+c.german+'</div>'+
+    '<div class="tj-carddivider"></div>'+
+    '<div class="tj-cardenglish">'+c.english+'</div>'+
+    (meta.length?'<div class="tj-cardmeta">'+meta.map(m=>'<div'+(m[1]?' style="color:'+m[1]+';"':'')+'>'+m[0]+'</div>').join('')+'</div>':'')+
+    '</div></div>';
+}
+function openCardDetail(cardId){
+  const c=allCards().find(x=>x.id===cardId); if(!c) return;
+  const art=c.gender?c.gender+' ':'';
+  let html='<div style="padding:4px 4px 12px;">';
+  html+='<div style="font-family:Georgia,serif;font-size:22px;font-weight:700;color:var(--ink);">'+(art?'<span class="'+genderClass(c.gender)+'">'+art+'</span>':'')+c.german+'</div>';
+  html+='<div style="font-size:15px;color:var(--ink-soft);margin-top:4px;">'+c.english+'</div>';
+  html+='<div style="font-size:12px;color:var(--ink-soft);margin-top:8px;">'+wordTypeEmoji(c.wordType)+' '+(WORDTYPE_LABEL[c.wordType]||c.wordType)+' \u00b7 '+topicEmoji(c.topic)+' '+(c.topic||'')+'</div>';
+  cardMetaParts(c).forEach(m=>{ html+='<div style="font-size:12px;margin-top:6px;'+(m[1]?'color:'+m[1]+';font-weight:700;':'color:var(--ink-soft);')+'">'+m[0]+'</div>'; });
+  if(c.example) html+='<div style="font-size:13px;font-style:italic;color:var(--ink-soft);margin-top:10px;">'+c.example+'</div>';
+  if(c.notes) html+='<div style="font-size:12px;color:var(--ink-soft);margin-top:6px;">'+c.notes+'</div>';
+  html+='</div>';
+  openSheet('Detalle', html);
+}
 function openMultiPicker(title, options, selected, onDone){
   let sel=selected.slice();
-  let html=options.map(t=>'<div class="sheet-opt" data-v="'+t+'"><span>'+t+'</span><span class="chk">'+(sel.indexOf(t)>=0?'\u2713':'')+'</span></div>').join('');
+  const opts=options.map(o=> typeof o==='string' ? {key:o,label:o} : o);
+  let html=opts.map(o=>'<div class="sheet-opt" data-v="'+o.key+'"><span>'+o.label+'</span><span class="chk">'+(sel.indexOf(o.key)>=0?'\u2713':'')+'</span></div>').join('');
   openSheet(title, html, ()=>onDone(sel));
   document.querySelectorAll('.sheet-opt').forEach(el=>{
     el.onclick=()=>{
@@ -474,6 +763,7 @@ function openMultiPicker(title, options, selected, onDone){
 function openTagPicker(deckId, topics, selected){
   openMultiPicker('Etiquetas', topics, selected, sel=>{ setSetting(deckId,'tagFilter',sel); renderDeck(deckId); });
 }
+
 
 function renderStub(title, msg){
   topTitle.textContent=title; backBtn.style.display='none'; plusBtn.style.display='none';
@@ -537,7 +827,7 @@ function renderStats(){
   h+=metricRow([['Mejor d\u00eda', bestDay? bestDay+' \u00b7 '+bestVal : '\u2014']]);
 
   h+=sectionLabel('Biblioteca');
-  h+=metricRow([['Mazos', DECKS.length],['Tarjetas', allCardsArr.length]]);
+  h+=metricRow([['Mazos', allDeckIds().length],['Tarjetas', allCardsArr.length]]);
   h+=metricRow([['Nuevas', newCount],['Maduras (>21d)', matureCount]]);
 
   h+=sectionLabel('Calidad de respuesta');
@@ -559,7 +849,7 @@ function renderStats(){
 
 /* ---------- OmniRepaso ---------- */
 const OMNI_META_KEY='dk_omni_meta_v1';
-function getOmniMeta(){ return Object.assign({period:'all', decks:DECKS.slice()}, loadJSON(OMNI_META_KEY,{})); }
+function getOmniMeta(){ return Object.assign({period:'all', decks:allDeckIds()}, loadJSON(OMNI_META_KEY,{})); }
 function setOmniMeta(m){ saveJSON(OMNI_META_KEY, m); }
 function lastStudiedDate(deckId){
   const log=loadJSON(LOG_KEY,[]);
@@ -568,19 +858,17 @@ function lastStudiedDate(deckId){
   return max;
 }
 function decksForPeriod(period){
-  if(period==='all') return DECKS.slice();
+  if(period==='all') return allDeckIds();
   const now=new Date(); const days= period==='week'?7:period==='month'?30:90;
   const cutoff=new Date(now.getTime()-days*86400000);
-  return DECKS.filter(id=>{ const d=lastStudiedDate(id); return d && d>=cutoff; });
+  return allDeckIds().filter(id=>{ const d=lastStudiedDate(id); return d && d>=cutoff; });
 }
 function buildOmniPool(meta, s){
   let pool=[];
   meta.decks.forEach(id=>{
     cardsForLevel(id).forEach(c=>{
       const b=bucketFor(getProgress(c.id));
-      if(b==='ahora'||b==='nvo'){
-        if(!(s.tagFilter&&s.tagFilter.length) || s.tagFilter.indexOf(c.topic)>=0) pool.push(c);
-      }
+      if((b==='ahora'||b==='nvo') && cardMatchesTagFilter(c, s.tagFilter)) pool.push(c);
     });
   });
   return pool;
@@ -596,12 +884,13 @@ function renderOmni(){
 
   const s=getSettings('omni');
   const pool=buildOmniPool(meta,s);
-  const topics=[...new Set(meta.decks.flatMap(id=>cardsForLevel(id).map(c=>c.topic)).filter(Boolean))];
+  const omniCards=meta.decks.flatMap(id=>cardsForLevel(id));
+  const tagOptions=buildTagOptions(omniCards);
   const selTopics=s.tagFilter&&s.tagFilter.length?s.tagFilter:[];
   const periodLbl={week:'Semana pasada',month:'Mes pasado','3months':'\u00daltimos 3 meses',all:'Todo'}[meta.period];
 
   let h=setRow('calendar','Per\u00edodo', periodLbl);
-  h+=setRow('cards','Mazos', meta.decks.length+'/'+DECKS.length);
+  h+=setRow('cards','Mazos', meta.decks.length+'/'+allDeckIds().length);
   h+=setRow('tag','Etiquetas', selTopics.length? selTopics.length+' seleccionadas':'Ninguno');
   h+=setRow('copy','Tarjetas por sesi\u00f3n', s.perSession==='all'?'Todo':s.perSession);
   h+=setRow('typography','Tama\u00f1o de fuente', s.fontSize+'px');
@@ -617,8 +906,8 @@ function renderOmni(){
     el.onclick=()=>{
       const label=el.dataset.label;
       if(label==='Per\u00edodo') openPicker('Per\u00edodo',[['week','Semana pasada'],['month','Mes pasado'],['3months','\u00daltimos 3 meses'],['all','Todo']].map(v=>({label:v[1],value:v[0]})), meta.period, v=>{ meta.period=v; setOmniMeta(meta); renderOmni(); });
-      else if(label==='Mazos') openMultiPicker('Mazos', avail, meta.decks, sel=>{ meta.decks=sel.length?sel:avail.slice(); setOmniMeta(meta); renderOmni(); });
-      else if(label==='Etiquetas') openMultiPicker('Etiquetas', topics, selTopics, sel=>{ setSetting('omni','tagFilter',sel); renderOmni(); });
+      else if(label==='Mazos') openMultiPicker('Mazos', avail.map(id=>({key:id,label:deckName(id)})), meta.decks, sel=>{ meta.decks=sel.length?sel:avail.slice(); setOmniMeta(meta); renderOmni(); });
+      else if(label==='Etiquetas') openMultiPicker('Etiquetas', tagOptions, selTopics, sel=>{ setSetting('omni','tagFilter',sel); renderOmni(); });
       else if(label==='Tarjetas por sesi\u00f3n') openPicker('Tarjetas por sesi\u00f3n',[10,20,30,50,100,'all'].map(v=>({label:v==='all'?'Todo':String(v),value:String(v)})), String(s.perSession), v=>{setSetting('omni','perSession', v==='all'?'all':parseInt(v)); renderOmni();});
       else if(label==='Tama\u00f1o de fuente') openPicker('Tama\u00f1o de fuente',[18,20,22,24,26,28,32].map(v=>({label:v+'px',value:String(v)})), String(s.fontSize), v=>{setSetting('omni','fontSize',parseInt(v)); renderOmni();});
       else if(label==='Temporizador de volteo autom\u00e1tico') openPicker('Temporizador de volteo autom\u00e1tico',[0,5,10,15,20].map(v=>({label:v?v+'s':'Apagado',value:String(v)})), String(s.autoFlip), v=>{setSetting('omni','autoFlip',parseInt(v)); renderOmni();});
@@ -642,8 +931,7 @@ function startStudy(deckId){
   const pool=cards.filter(c=>{
     const b=bucketFor(getProgress(c.id));
     if(!(b==='ahora'||b==='nvo')) return false;
-    if(s.tagFilter&&s.tagFilter.length) return s.tagFilter.indexOf(c.topic)>=0;
-    return true;
+    return cardMatchesTagFilter(c, s.tagFilter);
   });
   startStudySession(pool, s, {type:'deck', id:deckId});
 }
@@ -685,14 +973,15 @@ function renderStudyCard(){
   if(orient==='mixto') orient=Math.random()<0.5?'normal':'invertido';
   const showGermanFirst = orient!=='invertido';
   const article=c.gender==='der'?'der ':c.gender==='die'?'die ':c.gender==='das'?'das ':'';
+  const artCls=genderClass(c.gender);
   const fz=studySettings.fontSize;
-  const typeLbl={noun:'Sustantivo',verb:'Verbo',adjective:'Adjetivo',adverb:'Adverbio',preposition:'Preposici\u00f3n',phrase:'Frase',other:'Otro'}[c.wordType]||(c.wordType||'').toUpperCase();
+  const typeLbl=(WORDTYPE_LABEL[c.wordType]||(c.wordType||'').toUpperCase());
   const frontHTML = showGermanFirst
-    ? '<div class="wtype">'+typeLbl+'</div><div class="mainword" style="font-size:'+fz+'px;">'+(article?'<span class="art">'+article+'</span>':'')+c.german+'</div><div class="topictag">'+(c.topic||'')+'</div>'
+    ? '<div class="wtype">'+wordTypeEmoji(c.wordType)+' '+typeLbl+'</div><div class="mainword" style="font-size:'+fz+'px;">'+(article?'<span class="art '+artCls+'">'+article+'</span>':'')+c.german+'</div><div class="topictag">'+(c.topic?topicEmoji(c.topic)+' '+c.topic:'')+'</div>'
     : '<div class="wtype">TRADUCCI\u00d3N</div><div class="mainword" style="font-size:'+fz+'px;">'+c.english+'</div>';
   const backHTML = showGermanFirst
     ? '<div class="wtype">TRADUCCI\u00d3N</div><div class="mainword" style="font-size:'+Math.round(fz*0.85)+'px;">'+c.english+'</div><div class="exsent">'+(c.example||'')+'</div>'
-    : '<div class="wtype">'+typeLbl+'</div><div class="mainword" style="font-size:'+Math.round(fz*0.85)+'px;">'+(article?'<span class="art">'+article+'</span>':'')+c.german+'</div><div class="exsent">'+(c.example||'')+'</div>';
+    : '<div class="wtype">'+wordTypeEmoji(c.wordType)+' '+typeLbl+'</div><div class="mainword" style="font-size:'+Math.round(fz*0.85)+'px;">'+(article?'<span class="art '+artCls+'">'+article+'</span>':'')+c.german+'</div><div class="exsent">'+(c.example||'')+'</div>';
 
   body.innerHTML='<div class="stage"><div class="card-flip" id="cardFlip">'+
     '<div class="face front"><div class="holes"><span></span><span></span><span></span><span></span><span></span></div>'+frontHTML+'<div class="taphint">Toca para voltear</div></div>'+
