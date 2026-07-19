@@ -183,8 +183,8 @@
   .study-top{padding:12px 16px 6px;display:flex;align-items:center;justify-content:space-between;}
   .study-top .exitbtn{color:var(--chrome-text);font-size:18px;cursor:pointer;}
   .study-top .cnt{font-family:'SF Mono',monospace;font-size:12px;color:var(--chrome-text-soft);background:var(--glass-tint);padding:5px 12px;border-radius:12px;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border:0.5px solid var(--glass-border);}
-  .study-body{flex:1;padding:6px 20px;display:flex;align-items:center;justify-content:center;}
-  .stage{perspective:1400px;width:100%;max-width:420px;height:300px;}
+  .study-body{flex:1;padding:6px 20px;display:flex;align-items:center;justify-content:center;min-height:0;}
+  .stage{perspective:1400px;width:100%;max-width:420px;height:min(62vh, 460px);}
   .card-flip{position:relative;width:100%;height:100%;transition:transform .4s cubic-bezier(.4,.2,.2,1);transform-style:preserve-3d;cursor:pointer;}
   .card-flip.flipped{transform:rotateY(180deg);}
   .face{position:absolute;inset:0;backface-visibility:hidden;background:var(--card);border-radius:20px;
@@ -193,7 +193,8 @@
   .face::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:64px;height:13px;background:var(--red);border-radius:0 0 4px 4px;}
   .face .holes{position:absolute;left:9px;top:15px;bottom:15px;width:9px;display:flex;flex-direction:column;justify-content:space-evenly;}
   .face .holes span{width:7px;height:7px;border-radius:50%;background:var(--hole-color);}
-  .face.back{transform:rotateY(180deg);background:var(--row);}
+  .face.back{transform:rotateY(180deg);background:var(--row);justify-content:flex-start;overflow-y:auto;padding-top:30px;-webkit-overflow-scrolling:touch;}
+  .carddetail{width:100%;text-align:left;margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);}
   .wtype{font-family:'SF Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--red);margin-bottom:8px;}
   .mainword{font-family:Georgia,serif;font-weight:700;color:var(--ink);line-height:1.25;}
   .art{font-weight:400;}
@@ -422,6 +423,8 @@ const TOPIC_EMOJI={'Begrüßung':'👋','Familie':'👨‍👩‍👧','Berufe &
   'Natur & Umwelt':'🌳'};
 const WORDTYPE_EMOJI={noun:'📦',verb:'⚡',adjective:'🎨',adverb:'🔄',preposition:'🔗',conjunction:'🔀',phrase:'💬',other:'📌'};
 const WORDTYPE_LABEL={noun:'Substantiv',verb:'Verb',adjective:'Adjektiv',adverb:'Adverb',preposition:'Präposition',conjunction:'Konjunktion',phrase:'Redewendung',other:'Sonstiges'};
+const REVIEW_MODE_LABELS={fsrs:'FSRS',clasico:'Clásico',aleatorio:'Aleatorio',creacion:'En orden de creación',creacion_inv:'En orden de creación inverso'};
+const REVIEW_MODE_OPTIONS=[['fsrs','FSRS'],['clasico','Clásico'],['aleatorio','Aleatorio'],['creacion','En orden de creación'],['creacion_inv','En orden de creación inverso']];
 function topicEmoji(t){ return TOPIC_EMOJI[t] || '🏷️'; }
 function wordTypeEmoji(w){ return WORDTYPE_EMOJI[w] || '\ud83d\udccc'; }
 function genderClass(g){ return g==='der'?'art-der':g==='die'?'art-die':g==='das'?'art-das':''; }
@@ -695,7 +698,7 @@ function renderDeck(id){
   h+=setRow('copy','Tarjetas por sesi\u00f3n', s.perSession==='all'?'Todo':s.perSession);
   h+=setRow('typography','Tama\u00f1o de fuente', s.fontSize+'px');
   h+=setRow('clock','Temporizador de volteo autom\u00e1tico', s.autoFlip? s.autoFlip+'s':'Apagado');
-  h+=setRow('shuffle','Modo de repaso', {fsrs:'FSRS',clasico:'Cl\u00e1sico',aleatorio:'Aleatorio',creacion:'En orden de creaci\u00f3n'}[s.reviewMode]);
+  h+=setRow('shuffle','Modo de repaso', REVIEW_MODE_LABELS[s.reviewMode]);
   h+=setRow('brain','Retenci\u00f3n FSRS', {0.85:'Ligero 85%',0.9:'Equilibrado 90%',0.95:'Intensivo 95%'}[s.retention]);
   h+=setRow('refresh','Orientaci\u00f3n de la tarjeta', {normal:'Normal',invertido:'Invertido',mixto:'Mixto'}[s.orientation]);
   h+='<div class="set-row" id="stabRow"><i class="ti ti-arrow-bar-to-down"></i><span class="lbl">Estabilizaci\u00f3n al voltear</span><div class="toggle '+(s.stabilizeOnFlip?'on':'')+'" id="stabToggle"><div class="knob"></div></div></div>';
@@ -715,7 +718,7 @@ function renderDeck(id){
       else if(label==='Tarjetas por sesi\u00f3n') openPicker('Tarjetas por sesi\u00f3n',[10,20,30,50,100,'all'].map(v=>({label:v==='all'?'Todo':String(v),value:String(v)})), String(s.perSession), v=>{setSetting(id,'perSession', v==='all'?'all':parseInt(v)); renderDeck(id);});
       else if(label==='Tama\u00f1o de fuente') openPicker('Tama\u00f1o de fuente',[18,20,22,24,26,28,32].map(v=>({label:v+'px',value:String(v)})), String(s.fontSize), v=>{setSetting(id,'fontSize',parseInt(v)); renderDeck(id);});
       else if(label==='Temporizador de volteo autom\u00e1tico') openPicker('Temporizador de volteo autom\u00e1tico',[0,5,10,15,20].map(v=>({label:v?v+'s':'Apagado',value:String(v)})), String(s.autoFlip), v=>{setSetting(id,'autoFlip',parseInt(v)); renderDeck(id);});
-      else if(label==='Modo de repaso') openPicker('Modo de repaso',[['fsrs','FSRS'],['clasico','Cl\u00e1sico'],['aleatorio','Aleatorio'],['creacion','En orden de creaci\u00f3n']].map(v=>({label:v[1],value:v[0]})), s.reviewMode, v=>{setSetting(id,'reviewMode',v); renderDeck(id);});
+      else if(label==='Modo de repaso') openPicker('Modo de repaso',REVIEW_MODE_OPTIONS.map(v=>({label:v[1],value:v[0]})), s.reviewMode, v=>{setSetting(id,'reviewMode',v); renderDeck(id);});
       else if(label==='Retenci\u00f3n FSRS') openPicker('Retenci\u00f3n FSRS',[['0.85','Ligero (85%)'],['0.9','Equilibrado (90%)'],['0.95','Intensivo (95%)']].map(v=>({label:v[1],value:v[0]})), String(s.retention), v=>{setSetting(id,'retention',parseFloat(v)); renderDeck(id);});
       else if(label==='Orientaci\u00f3n de la tarjeta') openPicker('Orientaci\u00f3n de la tarjeta',[['normal','Normal'],['invertido','Invertido'],['mixto','Mixto']].map(v=>({label:v[1],value:v[0]})), s.orientation, v=>{setSetting(id,'orientation',v); renderDeck(id);});
       else if(label==='Importar tarjetas a este mazo') triggerImport(id);
@@ -878,6 +881,14 @@ function conjTableHTML(title, arr){
   const rows=arr.map((f,i)=>'<div style="display:flex;justify-content:space-between;padding:2px 0;font-size:12px;"><span style="color:var(--ink-soft);">'+(PRONOUNS[i]||'')+'</span><span style="font-weight:700;color:var(--ink);">'+f+'</span></div>').join('');
   return '<div style="margin-top:12px;"><div style="font-family:\'SF Mono\',monospace;font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);margin-bottom:4px;">'+title+'</div>'+rows+'</div>';
 }
+function richDetailHTML(c){
+  let html='';
+  cardMetaParts(c).forEach(m=>{ html+='<div style="font-size:12px;margin-top:6px;'+(m[1]?'color:'+m[1]+';font-weight:700;':'color:var(--ink-soft);')+'">'+m[0]+'</div>'; });
+  html+=conjTableHTML('Pr\u00e4sens', parseConjArray(c.presentConj));
+  html+=conjTableHTML('Pr\u00e4teritum', parseConjArray(c.praeteritum));
+  if(c.notes) html+='<div style="font-size:12px;color:var(--ink-soft);margin-top:10px;">'+c.notes+'</div>';
+  return html;
+}
 function openCardDetail(cardId){
   const c=allCards().find(x=>x.id===cardId); if(!c) return;
   const art=c.gender?c.gender+' ':'';
@@ -885,11 +896,8 @@ function openCardDetail(cardId){
   html+='<div style="font-family:Georgia,serif;font-size:22px;font-weight:700;color:var(--ink);">'+(art?'<span class="'+genderClass(c.gender)+'">'+art+'</span>':'')+c.german+'</div>';
   html+='<div style="font-size:15px;color:var(--ink-soft);margin-top:4px;">'+c.english+'</div>';
   html+='<div style="font-size:12px;color:var(--ink-soft);margin-top:8px;">'+wordTypeEmoji(c.wordType)+' '+(WORDTYPE_LABEL[c.wordType]||c.wordType)+' \u00b7 '+topicEmoji(c.topic)+' '+(c.topic||'')+'</div>';
-  cardMetaParts(c).forEach(m=>{ html+='<div style="font-size:12px;margin-top:6px;'+(m[1]?'color:'+m[1]+';font-weight:700;':'color:var(--ink-soft);')+'">'+m[0]+'</div>'; });
   if(c.example) html+='<div style="font-size:13px;font-style:italic;color:var(--ink-soft);margin-top:10px;">'+c.example+'</div>';
-  html+=conjTableHTML('Pr\u00e4sens', parseConjArray(c.presentConj));
-  html+=conjTableHTML('Pr\u00e4teritum', parseConjArray(c.praeteritum));
-  if(c.notes) html+='<div style="font-size:12px;color:var(--ink-soft);margin-top:10px;">'+c.notes+'</div>';
+  html+=richDetailHTML(c);
   html+='</div>';
   openSheet('Detalle', html);
 }
@@ -1041,7 +1049,7 @@ function renderOmni(){
   h+=setRow('copy','Tarjetas por sesi\u00f3n', s.perSession==='all'?'Todo':s.perSession);
   h+=setRow('typography','Tama\u00f1o de fuente', s.fontSize+'px');
   h+=setRow('clock','Temporizador de volteo autom\u00e1tico', s.autoFlip? s.autoFlip+'s':'Apagado');
-  h+=setRow('shuffle','Modo de repaso', {fsrs:'FSRS',clasico:'Cl\u00e1sico',aleatorio:'Aleatorio',creacion:'En orden de creaci\u00f3n'}[s.reviewMode]);
+  h+=setRow('shuffle','Modo de repaso', REVIEW_MODE_LABELS[s.reviewMode]);
   h+=setRow('brain','Retenci\u00f3n FSRS', {0.85:'Ligero 85%',0.9:'Equilibrado 90%',0.95:'Intensivo 95%'}[s.retention]);
   h+=setRow('refresh','Orientaci\u00f3n de la tarjeta', {normal:'Normal',invertido:'Invertido',mixto:'Mixto'}[s.orientation]);
   h+='<div class="set-row" id="omniStabRow"><i class="ti ti-arrow-bar-to-down"></i><span class="lbl">Estabilizaci\u00f3n al voltear</span><div class="toggle '+(s.stabilizeOnFlip?'on':'')+'" id="omniStabToggle"><div class="knob"></div></div></div>';
@@ -1057,7 +1065,7 @@ function renderOmni(){
       else if(label==='Tarjetas por sesi\u00f3n') openPicker('Tarjetas por sesi\u00f3n',[10,20,30,50,100,'all'].map(v=>({label:v==='all'?'Todo':String(v),value:String(v)})), String(s.perSession), v=>{setSetting('omni','perSession', v==='all'?'all':parseInt(v)); renderOmni();});
       else if(label==='Tama\u00f1o de fuente') openPicker('Tama\u00f1o de fuente',[18,20,22,24,26,28,32].map(v=>({label:v+'px',value:String(v)})), String(s.fontSize), v=>{setSetting('omni','fontSize',parseInt(v)); renderOmni();});
       else if(label==='Temporizador de volteo autom\u00e1tico') openPicker('Temporizador de volteo autom\u00e1tico',[0,5,10,15,20].map(v=>({label:v?v+'s':'Apagado',value:String(v)})), String(s.autoFlip), v=>{setSetting('omni','autoFlip',parseInt(v)); renderOmni();});
-      else if(label==='Modo de repaso') openPicker('Modo de repaso',[['fsrs','FSRS'],['clasico','Cl\u00e1sico'],['aleatorio','Aleatorio'],['creacion','En orden de creaci\u00f3n']].map(v=>({label:v[1],value:v[0]})), s.reviewMode, v=>{setSetting('omni','reviewMode',v); renderOmni();});
+      else if(label==='Modo de repaso') openPicker('Modo de repaso',REVIEW_MODE_OPTIONS.map(v=>({label:v[1],value:v[0]})), s.reviewMode, v=>{setSetting('omni','reviewMode',v); renderOmni();});
       else if(label==='Retenci\u00f3n FSRS') openPicker('Retenci\u00f3n FSRS',[['0.85','Ligero (85%)'],['0.9','Equilibrado (90%)'],['0.95','Intensivo (95%)']].map(v=>({label:v[1],value:v[0]})), String(s.retention), v=>{setSetting('omni','retention',parseFloat(v)); renderOmni();});
       else if(label==='Orientaci\u00f3n de la tarjeta') openPicker('Orientaci\u00f3n de la tarjeta',[['normal','Normal'],['invertido','Invertido'],['mixto','Mixto']].map(v=>({label:v[1],value:v[0]})), s.orientation, v=>{setSetting('omni','orientation',v); renderOmni();});
     };
@@ -1087,6 +1095,7 @@ function startStudySession(pool, s, returnTo){
   studySettings=s; studyReturn=returnTo; studyDone=0;
   if(s.reviewMode==='aleatorio') pool.sort(()=>Math.random()-0.5);
   else if(s.reviewMode==='creacion') pool.sort((a,b)=>a.id.localeCompare(b.id));
+  else if(s.reviewMode==='creacion_inv') pool.sort((a,b)=>b.id.localeCompare(a.id));
   else pool.sort((a,b)=>{
     const pa=getProgress(a.id), pb=getProgress(b.id);
     const da=pa?new Date(pa.due):new Date(0), db=pb?new Date(pb.due):new Date(0);
@@ -1127,8 +1136,8 @@ function renderStudyCard(){
     ? '<div class="wtype">'+wordTypeEmoji(c.wordType)+' '+typeLbl+'</div><div class="mainword" style="font-size:'+fz+'px;">'+(article?'<span class="art '+artCls+'">'+article+'</span>':'')+c.german+'</div><div class="topictag">'+(c.topic?topicEmoji(c.topic)+' '+c.topic:'')+'</div>'
     : '<div class="mainword" style="font-size:'+fz+'px;">'+c.english+'</div>';
   const backHTML = showGermanFirst
-    ? '<div class="mainword" style="font-size:'+Math.round(fz*0.85)+'px;">'+c.english+'</div><div class="exsent">'+(c.example||'')+'</div>'
-    : '<div class="wtype">'+wordTypeEmoji(c.wordType)+' '+typeLbl+'</div><div class="mainword" style="font-size:'+Math.round(fz*0.85)+'px;">'+(article?'<span class="art '+artCls+'">'+article+'</span>':'')+c.german+'</div><div class="exsent">'+(c.example||'')+'</div>';
+    ? '<div class="mainword" style="font-size:'+Math.round(fz*0.85)+'px;">'+c.english+'</div><div class="exsent">'+(c.example||'')+'</div><div class="carddetail">'+richDetailHTML(c)+'</div>'
+    : '<div class="wtype">'+wordTypeEmoji(c.wordType)+' '+typeLbl+'</div><div class="mainword" style="font-size:'+Math.round(fz*0.85)+'px;">'+(article?'<span class="art '+artCls+'">'+article+'</span>':'')+c.german+'</div><div class="exsent">'+(c.example||'')+'</div><div class="carddetail">'+richDetailHTML(c)+'</div>';
 
   body.innerHTML='<div class="stage"><div class="card-flip" id="cardFlip">'+
     '<div class="face front"><div class="holes"><span></span><span></span><span></span><span></span><span></span></div>'+frontHTML+'<div class="taphint">Toca para voltear</div></div>'+
