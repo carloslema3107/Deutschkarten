@@ -346,7 +346,7 @@ const TOPIC_EMOJI={'Alltag':'\ud83c\udfd9\ufe0f','Wetter':'\ud83c\udf26\ufe0f','
   'Kommunikation':'\ud83d\udcac','Wohnen':'\ud83c\udfe1','Gef\u00fchle':'\u2764\ufe0f',
   'Umwelt':'\ud83c\udf0d','Natur':'\ud83c\udf3f','Arbeit':'\ud83d\udcbc'};
 const WORDTYPE_EMOJI={noun:'\ud83d\udce6',verb:'\u26a1',adjective:'\ud83c\udfa8',adverb:'\u27a1\ufe0f',preposition:'\ud83d\udd17',phrase:'\ud83d\udcac',other:'\ud83d\udccc'};
-const WORDTYPE_LABEL={noun:'Sustantivo',verb:'Verbo',adjective:'Adjetivo',adverb:'Adverbio',preposition:'Preposici\u00f3n',phrase:'Frase',other:'Otro'};
+const WORDTYPE_LABEL={noun:'Substantiv',verb:'Verb',adjective:'Adjektiv',adverb:'Adverb',preposition:'Pr\u00e4position',phrase:'Redewendung',other:'Sonstiges'};
 function topicEmoji(t){ return TOPIC_EMOJI[t] || '\ud83c\udff7\ufe0f'; }
 function wordTypeEmoji(w){ return WORDTYPE_EMOJI[w] || '\ud83d\udccc'; }
 function genderClass(g){ return g==='der'?'art-der':g==='die'?'art-die':g==='das'?'art-das':''; }
@@ -567,6 +567,7 @@ function renderMazos(){
 
 function estMinutes(n){ return Math.max(1, Math.round(n*8/60)); }
 
+let deckBucketFilter={};
 function renderDeck(id){
   state.screen='deck'; state.deckId=id;
   topTitle.textContent=deckName(id); backBtn.style.display='block'; plusBtn.style.display='none';
@@ -575,16 +576,19 @@ function renderDeck(id){
   const buckets={nvo:0,ahora:0,'24h':0,manana:0,sem:0,futuro:0};
   cards.forEach(c=>{ buckets[bucketFor(getProgress(c.id))]++; });
   const maxB=Math.max(1,...Object.values(buckets));
+  const activeBucket=deckBucketFilter[id]||null;
   const order=[['nvo','Nvo','--purple'],['ahora','Ahora','--red'],['24h','<24h','--lightred'],['manana','Ma\u00f1ana','--ochre'],['sem','<1sem','--blue'],['futuro','Futuro','--moss']];
   let h='<div class="hist">'+order.map(o=>{
     const v=buckets[o[0]]; const hpx=Math.max(3,Math.round((v/maxB)*80));
-    return '<div class="bar-wrap" data-bucket="'+o[0]+'" style="cursor:pointer;"><span class="val">'+v+'</span><div class="bar" style="height:'+hpx+'px;background:var('+o[2]+');"></div><span class="lbl">'+o[1]+'</span></div>';
+    const activeStyle=activeBucket===o[0]?'outline:2px dashed var(--ink);outline-offset:3px;border-radius:4px;':'';
+    return '<div class="bar-wrap" data-bucket="'+o[0]+'" style="cursor:pointer;'+activeStyle+'"><span class="val">'+v+'</span><div class="bar" style="height:'+hpx+'px;background:var('+o[2]+');"></div><span class="lbl">'+o[1]+'</span></div>';
   }).join('')+'</div>';
 
   const s=getSettings(id);
   const tagOptions=buildTagOptions(cards);
   const selTopics=s.tagFilter&&s.tagFilter.length?s.tagFilter:[];
-  h+=setRow('cards','Ver tarjetas', cards.length+' en total');
+  const filteredCards=activeBucket ? cards.filter(c=>bucketFor(getProgress(c.id))===activeBucket) : cards;
+  h+=setRow('cards','Ver tarjetas', activeBucket ? (filteredCards.length+'/'+cards.length+' \u00b7 Filtro aplicado') : (cards.length+' en total'));
   h+=setRow('edit','Renombrar mazo', deckName(id));
   h+=setRow('tag','Etiquetas', selTopics.length? selTopics.length+' seleccionadas':'Ninguno');
   h+=setRow('copy','Tarjetas por sesi\u00f3n', s.perSession==='all'?'Todo':s.perSession);
@@ -596,15 +600,15 @@ function renderDeck(id){
   h+='<div class="set-row" id="stabRow"><i class="ti ti-arrow-bar-to-down"></i><span class="lbl">Estabilizaci\u00f3n al voltear</span><div class="toggle '+(s.stabilizeOnFlip?'on':'')+'" id="stabToggle"><div class="knob"></div></div></div>';
   h+=setRow('upload','Importar tarjetas a este mazo', '');
 
-  const due=cards.filter(c=>{const b=bucketFor(getProgress(c.id)); return b==='ahora'||b==='nvo';});
-  h+='<div class="sticky-bottom"><div><div class="go"><i class="ti ti-player-play"></i>Repasar</div><div class="est">Tiempo estimado '+estMinutes(due.length)+' min</div></div><span class="count">'+due.length+'</span></div>';
+  const studyPool = activeBucket ? filteredCards.filter(c=>cardMatchesTagFilter(c,s.tagFilter)) : cards.filter(c=>{const b=bucketFor(getProgress(c.id)); return (b==='ahora'||b==='nvo') && cardMatchesTagFilter(c,s.tagFilter);});
+  h+='<div class="sticky-bottom"><div><div class="go"><i class="ti ti-player-play"></i>Repasar'+(activeBucket?' ('+bucketLabel(activeBucket)+')':'')+'</div><div class="est">Tiempo estimado '+estMinutes(studyPool.length)+' min</div></div><span class="count">'+studyPool.length+'</span></div>';
 
   content.innerHTML=h;
 
   document.querySelectorAll('.set-row').forEach(el=>{
     el.onclick=()=>{
       const label=el.dataset.label;
-      if(label==='Ver tarjetas') renderTarjetas(id, {bucket:null});
+      if(label==='Ver tarjetas') renderTarjetas(id, {bucket:activeBucket});
       else if(label==='Renombrar mazo') openTextPrompt('Renombrar mazo', 'Nombre del mazo', deckName(id), (name)=>{ if(name) renameDeck(id,name); renderDeck(id); });
       else if(label==='Etiquetas') openMultiPicker('Etiquetas', tagOptions, selTopics, sel=>{ setSetting(id,'tagFilter',sel); renderDeck(id); });
       else if(label==='Tarjetas por sesi\u00f3n') openPicker('Tarjetas por sesi\u00f3n',[10,20,30,50,100,'all'].map(v=>({label:v==='all'?'Todo':String(v),value:String(v)})), String(s.perSession), v=>{setSetting(id,'perSession', v==='all'?'all':parseInt(v)); renderDeck(id);});
@@ -617,18 +621,21 @@ function renderDeck(id){
     };
   });
   content.querySelectorAll('.hist .bar-wrap').forEach(el=>{
-    el.onclick=()=>renderTarjetas(id, {bucket:el.dataset.bucket});
+    el.onclick=()=>{
+      const b=el.dataset.bucket;
+      deckBucketFilter[id] = (deckBucketFilter[id]===b) ? null : b;
+      renderDeck(id);
+    };
   });
   document.getElementById('stabToggle').onclick=(e)=>{ e.stopPropagation(); setSetting(id,'stabilizeOnFlip', !s.stabilizeOnFlip); renderDeck(id); };
-  content.querySelector('.sticky-bottom').onclick=()=>startStudy(id);
+  content.querySelector('.sticky-bottom').onclick=()=>startStudy(id, activeBucket);
 }
 function setRow(icon,label,val){
   return '<div class="set-row" data-label="'+label+'"><i class="ti ti-'+icon+'"></i><span class="lbl">'+label+'</span><span class="val">'+val+'</span><i class="ti ti-chevron-right chev"></i></div>';
 }
 
 /* ---------- Tarjetas browser ---------- */
-let tarjetasView='list', tarjetasLetter=null, tarjetasBucket=null, tarjetasDeckId=null, tarjetasSort='alpha-asc';
-function letterOf(w){ return (w||'?').trim().charAt(0).toUpperCase(); }
+let tarjetasView='list', tarjetasWordType=null, tarjetasBucket=null, tarjetasDeckId=null, tarjetasSort='alpha-asc';
 function bucketLabel(b){ return {nvo:'Nvo',ahora:'Ahora','24h':'<24h',manana:'Ma\u00f1ana',sem:'<1sem',futuro:'Futuro'}[b]||b; }
 function bucketColorVar(b){ return {nvo:'--purple',ahora:'--red','24h':'--lightred',manana:'--ochre',sem:'--blue',futuro:'--moss'}[b]||'--line'; }
 const SORT_LABELS={'alpha-asc':'Alfab\u00e9tico \u25b2','alpha-desc':'Alfab\u00e9tico \u25bc','created-asc':'Creado \u25b2','created-desc':'Creado \u25bc','review-asc':'\u00daltimo repaso \u25b2','review-desc':'\u00daltimo repaso \u25bc'};
@@ -673,7 +680,7 @@ function caseColor(v){
 
 function renderTarjetas(deckId, opts){
   opts=opts||{};
-  if(deckId!==tarjetasDeckId){ tarjetasDeckId=deckId; tarjetasLetter=null; tarjetasBucket=null; }
+  if(deckId!==tarjetasDeckId){ tarjetasDeckId=deckId; tarjetasWordType=null; tarjetasBucket=null; }
   if('bucket' in opts) tarjetasBucket=opts.bucket;
   state.screen='tarjetas'; state.deckId=deckId;
   topTitle.textContent='Tarjetas \u00b7 '+deckName(deckId);
@@ -683,9 +690,9 @@ function renderTarjetas(deckId, opts){
   const allInDeck=cardsForLevel(deckId);
   let cards=allInDeck;
   if(tarjetasBucket) cards=cards.filter(c=>bucketFor(getProgress(c.id))===tarjetasBucket);
-  if(tarjetasLetter) cards=cards.filter(c=>letterOf(c.german)===tarjetasLetter);
+  if(tarjetasWordType) cards=cards.filter(c=>c.wordType===tarjetasWordType);
   cards=sortCards(cards, tarjetasSort);
-  const letters=[...new Set(allInDeck.map(c=>letterOf(c.german)))].sort();
+  const wordTypes=[...new Set(allInDeck.map(c=>c.wordType).filter(Boolean))];
 
   let h='<div class="tj-toolbar"><div class="tj-viewtoggle">'+
     '<button class="tj-vbtn'+(tarjetasView==='list'?' active':'')+'" data-v="list"><i class="ti ti-list"></i></button>'+
@@ -693,8 +700,8 @@ function renderTarjetas(deckId, opts){
     '<button class="tj-vbtn" id="sortBtn" style="background:var(--row);"><i class="ti ti-arrows-sort"></i></button>'+
     (tarjetasBucket?'<div class="tj-chip" id="clearBucket">'+bucketLabel(tarjetasBucket)+' <i class="ti ti-x"></i></div>':'')+
     '</div>';
-  h+='<div class="tj-alpha">'+letters.map(l=>'<span class="tj-letter'+(tarjetasLetter===l?' active':'')+'" data-l="'+l+'">'+l+'</span>').join('')+
-    (tarjetasLetter?'<span class="tj-letter tj-clear" id="clearLetter">\u2715</span>':'')+'</div>';
+  h+='<div class="tj-alpha"><span class="tj-letter'+(!tarjetasWordType?' active':'')+'" data-wt="__all__">Todos</span>'+
+    wordTypes.map(w=>'<span class="tj-letter'+(tarjetasWordType===w?' active':'')+'" data-wt="'+w+'">'+wordTypeEmoji(w)+' '+(WORDTYPE_LABEL[w]||w)+'</span>').join('')+'</div>';
 
   if(!cards.length){
     h+='<div class="empty-msg"><div class="big">Sin tarjetas</div><div class="small">No hay tarjetas con este filtro.</div></div>';
@@ -710,8 +717,11 @@ function renderTarjetas(deckId, opts){
     openPicker('Ordenar por', Object.keys(SORT_LABELS).map(k=>({label:SORT_LABELS[k],value:k})), tarjetasSort, v=>{ tarjetasSort=v; renderTarjetas(deckId,{}); });
   };
   const cb=document.getElementById('clearBucket'); if(cb) cb.onclick=()=>{ tarjetasBucket=null; renderTarjetas(deckId,{bucket:null}); };
-  const cl=document.getElementById('clearLetter'); if(cl) cl.onclick=()=>{ tarjetasLetter=null; renderTarjetas(deckId,{}); };
-  content.querySelectorAll('.tj-letter[data-l]').forEach(el=>el.onclick=()=>{ tarjetasLetter=el.dataset.l; renderTarjetas(deckId,{}); });
+  content.querySelectorAll('.tj-letter[data-wt]').forEach(el=>el.onclick=()=>{
+    const wt=el.dataset.wt;
+    tarjetasWordType = (wt==='__all__') ? null : (tarjetasWordType===wt ? null : wt);
+    renderTarjetas(deckId,{});
+  });
   content.querySelectorAll('[data-card-id]').forEach(el=>el.onclick=()=>openCardDetail(el.dataset.cardId));
 }
 function tjListRow(c){
@@ -734,6 +744,17 @@ function tjGridCard(c){
     (meta.length?'<div class="tj-cardmeta">'+meta.map(m=>'<div'+(m[1]?' style="color:'+m[1]+';"':'')+'>'+m[0]+'</div>').join('')+'</div>':'')+
     '</div></div>';
 }
+const PRONOUNS=['ich','du','er/sie/es','wir','ihr','sie/Sie'];
+function parseConjArray(v){
+  if(!v) return null;
+  const parts=String(v).split(/[;,|]/).map(s=>s.trim()).filter(Boolean);
+  return parts.length?parts:null;
+}
+function conjTableHTML(title, arr){
+  if(!arr) return '';
+  const rows=arr.map((f,i)=>'<div style="display:flex;justify-content:space-between;padding:2px 0;font-size:12px;"><span style="color:var(--ink-soft);">'+(PRONOUNS[i]||'')+'</span><span style="font-weight:700;color:var(--ink);">'+f+'</span></div>').join('');
+  return '<div style="margin-top:12px;"><div style="font-family:\'SF Mono\',monospace;font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);margin-bottom:4px;">'+title+'</div>'+rows+'</div>';
+}
 function openCardDetail(cardId){
   const c=allCards().find(x=>x.id===cardId); if(!c) return;
   const art=c.gender?c.gender+' ':'';
@@ -743,7 +764,9 @@ function openCardDetail(cardId){
   html+='<div style="font-size:12px;color:var(--ink-soft);margin-top:8px;">'+wordTypeEmoji(c.wordType)+' '+(WORDTYPE_LABEL[c.wordType]||c.wordType)+' \u00b7 '+topicEmoji(c.topic)+' '+(c.topic||'')+'</div>';
   cardMetaParts(c).forEach(m=>{ html+='<div style="font-size:12px;margin-top:6px;'+(m[1]?'color:'+m[1]+';font-weight:700;':'color:var(--ink-soft);')+'">'+m[0]+'</div>'; });
   if(c.example) html+='<div style="font-size:13px;font-style:italic;color:var(--ink-soft);margin-top:10px;">'+c.example+'</div>';
-  if(c.notes) html+='<div style="font-size:12px;color:var(--ink-soft);margin-top:6px;">'+c.notes+'</div>';
+  html+=conjTableHTML('Pr\u00e4sens', parseConjArray(c.presentConj));
+  html+=conjTableHTML('Pr\u00e4teritum', parseConjArray(c.praeteritum));
+  if(c.notes) html+='<div style="font-size:12px;color:var(--ink-soft);margin-top:10px;">'+c.notes+'</div>';
   html+='</div>';
   openSheet('Detalle', html);
 }
@@ -925,12 +948,13 @@ function renderOmni(){
 
 let studyQueue=[], studyIdx=0, studyReturn=null, studySettings=null, flipped=false, autoFlipTimer=null, studyDone=0, cardShownAt=0;
 
-function startStudy(deckId){
+function startStudy(deckId, forcedBucket){
   const cards=cardsForLevel(deckId);
   const s=getSettings(deckId);
   const pool=cards.filter(c=>{
     const b=bucketFor(getProgress(c.id));
-    if(!(b==='ahora'||b==='nvo')) return false;
+    const dueOk = forcedBucket ? (b===forcedBucket) : (b==='ahora'||b==='nvo');
+    if(!dueOk) return false;
     return cardMatchesTagFilter(c, s.tagFilter);
   });
   startStudySession(pool, s, {type:'deck', id:deckId});
@@ -978,9 +1002,9 @@ function renderStudyCard(){
   const typeLbl=(WORDTYPE_LABEL[c.wordType]||(c.wordType||'').toUpperCase());
   const frontHTML = showGermanFirst
     ? '<div class="wtype">'+wordTypeEmoji(c.wordType)+' '+typeLbl+'</div><div class="mainword" style="font-size:'+fz+'px;">'+(article?'<span class="art '+artCls+'">'+article+'</span>':'')+c.german+'</div><div class="topictag">'+(c.topic?topicEmoji(c.topic)+' '+c.topic:'')+'</div>'
-    : '<div class="wtype">TRADUCCI\u00d3N</div><div class="mainword" style="font-size:'+fz+'px;">'+c.english+'</div>';
+    : '<div class="mainword" style="font-size:'+fz+'px;">'+c.english+'</div>';
   const backHTML = showGermanFirst
-    ? '<div class="wtype">TRADUCCI\u00d3N</div><div class="mainword" style="font-size:'+Math.round(fz*0.85)+'px;">'+c.english+'</div><div class="exsent">'+(c.example||'')+'</div>'
+    ? '<div class="mainword" style="font-size:'+Math.round(fz*0.85)+'px;">'+c.english+'</div><div class="exsent">'+(c.example||'')+'</div>'
     : '<div class="wtype">'+wordTypeEmoji(c.wordType)+' '+typeLbl+'</div><div class="mainword" style="font-size:'+Math.round(fz*0.85)+'px;">'+(article?'<span class="art '+artCls+'">'+article+'</span>':'')+c.german+'</div><div class="exsent">'+(c.example||'')+'</div>';
 
   body.innerHTML='<div class="stage"><div class="card-flip" id="cardFlip">'+
