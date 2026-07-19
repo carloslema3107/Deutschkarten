@@ -763,6 +763,7 @@ function cardMetaParts(c){
   if(c.wordType==='verb'){
     if(c.regularity==='regular') parts.push(['✓ Regular', 'var(--moss)']);
     else if(c.regularity==='irregular') parts.push(['⚠️ Irregular', 'var(--ochre)']);
+    if(c.modal) parts.push(['Modalverb', 'var(--purple)']);
     if(c.separable && c.separable!=='false' && c.separable!=='no' && c.separable!=='0') parts.push(['Trennbar'+(c.separablePrefix?' ('+c.separablePrefix+'-)':''), null]);
     if(c.verbCase) parts.push(['Kasus: '+c.verbCase, caseColor(c.verbCase)]);
     if(c.pp) parts.push(['PP: '+(c.auxiliaryVerb?c.auxiliaryVerb+' ':'')+c.pp, null]);
@@ -772,8 +773,18 @@ function cardMetaParts(c){
     if(c.prepCase) parts.push(['Kasus: '+c.prepCase, caseColor(c.prepCase)]);
   } else if(c.wordType==='adjective'){
     if(c.komparativ) parts.push([c.komparativ+(c.superlativ?' / '+c.superlativ:''), null]);
+  } else if(c.wordType==='conjunction'){
+    if(c.conjType) parts.push([c.conjType, conjTypeColor(c.conjType)]);
   }
+  if(c.register) parts.push(['Register: '+c.register, 'var(--teal)']);
   return parts;
+}
+function conjTypeColor(v){
+  const k=(v||'').toLowerCase();
+  if(k.indexOf('koordinier')>=0) return 'var(--blue)';
+  if(k.indexOf('subordinier')>=0) return 'var(--purple)';
+  if(k.indexOf('zweiteilig')>=0) return 'var(--ochre)';
+  return 'var(--ink-soft)';
 }
 function caseColor(v){
   const k=(v||'').toLowerCase();
