@@ -1,4 +1,4 @@
-const CACHE_NAME = 'deutschkarten-v31';
+const CACHE_NAME = 'deutschkarten-v32';
 const ASSETS = [
   './',
   './index.html',
