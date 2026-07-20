@@ -1875,11 +1875,8 @@ function renderStudyCard(){
   if(studySettings.autoFlip>0){
     autoFlipTimer=setTimeout(()=>{ if(!flipped) doFlip(); }, studySettings.autoFlip*1000);
   }
-  setupSwipeGestures();
 }
-let swipeJustRated=false;
 function onCardTap(){
-  if(swipeJustRated){ swipeJustRated=false; return; }
   doFlip();
 }
 function doFlip(){
@@ -1887,50 +1884,6 @@ function doFlip(){
   flipped=!flipped;
   document.getElementById('cardFlip').classList.toggle('flipped', flipped);
   setRatingsVisible(flipped);
-}
-function setupSwipeGestures(){
-  const stage=document.querySelector('.stage');
-  if(!stage) return;
-  let startX=0, startY=0, swiping=false;
-  stage.style.transition='transform 0.25s ease';
-  stage.addEventListener('pointerdown', e=>{
-    if(!flipped) return;
-    swiping=true;
-    startX=e.clientX; startY=e.clientY;
-    stage.style.transition='none';
-    try{ stage.setPointerCapture(e.pointerId); }catch(err){}
-  });
-  stage.addEventListener('pointermove', e=>{
-    if(!swiping) return;
-    const dx=e.clientX-startX, dy=e.clientY-startY;
-    stage.style.transform='translate('+dx+'px,'+dy+'px) rotate('+(dx/20)+'deg)';
-  });
-  stage.addEventListener('pointerup', e=>{
-    if(!swiping) return;
-    swiping=false;
-    const dx=e.clientX-startX, dy=e.clientY-startY;
-    const threshold=80;
-    let grade=null;
-    if(Math.abs(dx)>=Math.abs(dy)){
-      if(dx>threshold) grade=3;
-      else if(dx<-threshold) grade=1;
-    } else {
-      if(dy<-threshold) grade=4;
-      else if(dy>threshold) grade=2;
-    }
-    stage.style.transition='transform 0.25s ease';
-    if(grade){
-      swipeJustRated=true;
-      const flyX=dx>0? 500 : (dx<0? -500 : 0);
-      const flyY=dy>0? 500 : (dy<0? -500 : 0);
-      stage.style.transform='translate('+(Math.abs(dx)>=Math.abs(dy)?flyX:dx)+'px,'+(Math.abs(dy)>Math.abs(dx)?flyY:dy)+'px) rotate('+(dx/10)+'deg)';
-      stage.style.opacity='0';
-      setTimeout(()=>{ applyRating(grade); }, 180);
-    } else {
-      stage.style.transform='';
-    }
-  });
-  stage.addEventListener('pointercancel', ()=>{ swiping=false; stage.style.transform=''; });
 }
 function applyRating(g){
   const c=studyQueue[studyIdx];
