@@ -371,6 +371,7 @@ function purgeDeckPermanently(deckId){
   const prog=loadJSON(PROGRESS_KEY,{});
   idsOfLevel.forEach(id=>{ delete prog[id]; });
   saveJSON(PROGRESS_KEY, prog);
+  invalidateProgressCache();
   const settings=loadJSON(SETTINGS_KEY,{});
   delete settings[deckId];
   saveJSON(SETTINGS_KEY, settings);
@@ -387,6 +388,7 @@ function resetDeckProgress(deckId){
   const prog=loadJSON(PROGRESS_KEY,{});
   ids.forEach(id=>{ delete prog[id]; });
   saveJSON(PROGRESS_KEY, prog);
+  invalidateProgressCache();
   const log=loadJSON(LOG_KEY,[]);
   saveJSON(LOG_KEY, log.filter(e=>e.level!==deckId));
 }
@@ -405,8 +407,13 @@ const DEFAULT_SETTINGS={perSession:20,fontSize:26,autoFlip:0,reviewMode:'fsrs',r
 function getSettings(deckId){ const all=loadJSON(SETTINGS_KEY,{}); return Object.assign({},DEFAULT_SETTINGS, all[deckId]||{}); }
 function setSetting(deckId,key,val){ const all=loadJSON(SETTINGS_KEY,{}); all[deckId]=Object.assign({},getSettings(deckId),{[key]:val}); saveJSON(SETTINGS_KEY,all); }
 
-function getProgress(id){ const p=loadJSON(PROGRESS_KEY,{}); return p[id]||null; }
-function setProgress(id,val){ const p=loadJSON(PROGRESS_KEY,{}); p[id]=val; saveJSON(PROGRESS_KEY,p); }
+let _progressCache=null;
+function invalidateProgressCache(){ _progressCache=null; }
+function getProgressMap(){ if(_progressCache===null) _progressCache=loadJSON(PROGRESS_KEY,{}); return _progressCache; }
+function getProgress(id){ return getProgressMap()[id]||null; }
+function setProgress(id,val){ const p=getProgressMap(); p[id]=val; saveJSON(PROGRESS_KEY,p); }
+function deleteProgress(id){ const p=getProgressMap(); delete p[id]; saveJSON(PROGRESS_KEY,p); }
+
 
 function logReview(cardId,level,grade,elapsedMs){
   const log=loadJSON(LOG_KEY,[]);
@@ -428,8 +435,8 @@ function computeStreak(map){
   return streak;
 }
 const DOW=['dom','lun','mar','mi\u00e9','jue','vie','s\u00e1b'];
-function last7(){
-  const map=reviewsByDay();
+function last7(map){
+  map = map || reviewsByDay();
   const days=[];
   for(let i=6;i>=0;i--){
     const d=new Date(); d.setDate(d.getDate()-i);
@@ -439,7 +446,10 @@ function last7(){
 }
 function aggregateBuckets(){
   const buckets={nvo:0,ahora:0,'24h':0,manana:0,sem:0,futuro:0};
-  allDeckIds().forEach(id=>{ cardsForLevel(id).forEach(c=>{ buckets[bucketFor(getProgress(c.id))]++; }); });
+  const validIds=new Set(allDeckIds());
+  allCards().forEach(c=>{
+    if(validIds.has(c.level)) buckets[bucketFor(getProgress(c.id))]++;
+  });
   return buckets;
 }
 function formatDuration(ms){
@@ -859,6 +869,7 @@ function restoreBackupData(data){
   BACKUP_KEYS.forEach(k=>{
     if(data[k]!==undefined) localStorage.setItem(k, data[k]);
   });
+  invalidateProgressCache();
 }
 function triggerBackupImport(){
   const input=document.createElement('input');
@@ -1060,8 +1071,8 @@ function renderCapture(){
   }
 
   content.innerHTML=h;
+  content.scrollTop=0;
 
-  const wordEl=document.getElementById('capWord');
   const noteEl=document.getElementById('capNote');
   function doSave(){
     const word=wordEl.value.trim();
@@ -1130,8 +1141,9 @@ function renderMazos(){
   settingsBtn.style.display='block'; settingsBtn.onclick=openGeneralSettings;
   plusBtn.onclick=()=>triggerImport(null);
   let h='<div class="sub-label">Deutsch</div>';
+  const allC=allCards();
   allDeckIds().forEach(id=>{
-    const cards=cardsForLevel(id);
+    const cards=allC.filter(c=>c.level===id);
     let pend=0, nvo=0;
     cards.forEach(c=>{ const b=bucketFor(getProgress(c.id)); if(b==='ahora')pend++; if(b==='nvo')nvo++; });
     h+='<div class="deck-row" data-id="'+id+'"><div><div class="name">'+deckName(id)+'</div><div class="sub">'+cards.length+' tarjetas</div></div>'+
@@ -1140,6 +1152,7 @@ function renderMazos(){
   const trashCount=trashedDeckIds().length;
   h+='<div class="deck-row" id="trashRow" style="margin-top:10px;"><div><div class="name" style="font-size:14px;">\ud83d\uddd1\ufe0f Papelera</div><div class="sub">'+(trashCount?trashCount+' mazo(s) eliminado(s)':'vac\u00eda')+'</div></div></div>';
   content.innerHTML=h;
+  content.scrollTop=0;
   document.querySelectorAll('.deck-row[data-id]').forEach(el=>el.onclick=()=>renderDeck(el.dataset.id));
   document.getElementById('trashRow').onclick=renderTrash;
 }
@@ -1166,6 +1179,7 @@ function renderTrash(){
     });
   }
   content.innerHTML=h;
+  content.scrollTop=0;
   content.querySelectorAll('[data-restore]').forEach(el=>el.onclick=()=>{ restoreDeck(el.dataset.restore); renderTrash(); });
   content.querySelectorAll('[data-purge]').forEach(el=>{
     el.onclick=()=>{
@@ -1217,6 +1231,7 @@ function renderDeck(id){
   h+='<div class="sticky-bottom"><div><div class="go"><i class="ti ti-player-play"></i>Repasar'+(activeBucket?' ('+bucketLabel(activeBucket)+')':'')+'</div><div class="est">Tiempo estimado '+estMinutes(cappedCount)+' min</div></div><span class="count">'+cappedCount+'</span></div>';
 
   content.innerHTML=h;
+  content.scrollTop=0;
 
   document.querySelectorAll('.set-row').forEach(el=>{
     el.onclick=()=>{
@@ -1333,6 +1348,7 @@ function renderTarjetas(deckId, opts){
     wordTypes.map(w=>'<span class="tj-letter'+(tarjetasWordType===w?' active':'')+'" data-wt="'+w+'">'+wordTypeEmoji(w)+' '+(WORDTYPE_LABEL[w]||w)+'</span>').join('')+'</div>';
   h+='<div id="tjResults"></div>';
   content.innerHTML=h;
+  content.scrollTop=0;
 
   content.querySelectorAll('.tj-vbtn[data-v]').forEach(b=>b.onclick=()=>{
     tarjetasView=b.dataset.v;
@@ -1535,7 +1551,7 @@ function renderStats(keepCalendar){
   const map=reviewsByDay();
   const goal=loadJSON('dk_goal_v1',50);
   const todayCount=map[dayKey(new Date())]||0;
-  const last7d=last7();
+  const last7d=last7(map);
   const sum7=last7d.reduce((a,b)=>a+b.val,0);
   let sum30=0; for(let i=0;i<30;i++){ const d=new Date(); d.setDate(d.getDate()-i); sum30+=map[dayKey(d)]||0; }
   const avgPerDay=Math.round(sum30/30);
@@ -1585,6 +1601,7 @@ function renderStats(keepCalendar){
   h+='<div style="height:14px;"></div>';
 
   content.innerHTML=h;
+  if(!keepCalendar) content.scrollTop=0;
   const goalCard=content.querySelector('[data-goal-card]');
   if(goalCard) goalCard.onclick=()=>{
     openPicker('Objetivo diario de estudio', [20,50,100,150,200,300].map(v=>({label:String(v),value:String(v)})), String(goal), v=>{ saveJSON('dk_goal_v1', parseInt(v)); renderStats(true); });
@@ -1664,6 +1681,7 @@ function renderOmni(){
   h+='<div class="sticky-bottom"><div><div class="go"><i class="ti ti-player-play"></i>Repasar</div><div class="est">Tiempo estimado '+estMinutes(omniCapped)+' min</div></div><span class="count">'+omniCapped+'</span></div>';
 
   content.innerHTML=h;
+  content.scrollTop=0;
   document.querySelectorAll('.set-row').forEach(el=>{
     el.onclick=()=>{
       const label=el.dataset.label;
@@ -1918,7 +1936,7 @@ function undoLastRating(){
   if(!lastAction) return;
   const {cardId, prevProgress, prevAgainCount, studyIdxBefore, studyDoneBefore, pushedToEnd}=lastAction;
   if(prevProgress){ setProgress(cardId, prevProgress); }
-  else{ const prog=loadJSON(PROGRESS_KEY,{}); delete prog[cardId]; saveJSON(PROGRESS_KEY, prog); }
+  else{ deleteProgress(cardId); }
   if(prevAgainCount>0) againCounts[cardId]=prevAgainCount; else delete againCounts[cardId];
   const log=loadJSON(LOG_KEY,[]); log.pop(); saveJSON(LOG_KEY, log);
   if(pushedToEnd){
@@ -1938,6 +1956,7 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
+    content.scrollTop=0;
     if(btn.dataset.tab==='mazos') renderMazos();
     if(btn.dataset.tab==='stats') renderStats();
     if(btn.dataset.tab==='omni') renderOmni();
