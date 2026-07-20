@@ -820,6 +820,73 @@ function triggerImport(forceLevel){
   input.click();
 }
 
+/* ---------- Backup / restore ---------- */
+const BACKUP_KEYS=['dk_custom_cards_v1','dk_progress_v2','dk_settings_v1','dk_reviewlog_v1','dk_deck_registry_v1','dk_trash_v1','dk_hidden_builtin_v1','dk_font_v1','dk_quickcapture_v1','dk_omni_meta_v1','dk_response_style_v1','dk_float_opacity_v1','dk_float_pos_v1','dk_voice_v1','dk_goal_v1','dk_theme_v1'];
+function exportBackup(){
+  const data={};
+  BACKUP_KEYS.forEach(k=>{
+    const v=localStorage.getItem(k);
+    if(v!==null) data[k]=v;
+  });
+  const payload={app:'DeutschKarten', version:1, exportedAt:new Date().toISOString(), data};
+  const text=JSON.stringify(payload);
+  const dateStr=new Date().toISOString().slice(0,10);
+  const filename='deutschkarten-backup-'+dateStr+'.json';
+  const blob=new Blob([text], {type:'application/json'});
+
+  if(navigator.share && navigator.canShare){
+    try{
+      const file=new File([blob], filename, {type:'application/json'});
+      if(navigator.canShare({files:[file]})){
+        navigator.share({files:[file], title:'Copia de seguridad DeutschKarten'}).catch(err=>{
+          if(err && err.name==='AbortError') return;
+          downloadBackupBlob(blob, filename);
+        });
+        return;
+      }
+    }catch(e){}
+  }
+  downloadBackupBlob(blob, filename);
+}
+function downloadBackupBlob(blob, filename){
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=filename;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+}
+function restoreBackupData(data){
+  BACKUP_KEYS.forEach(k=>{
+    if(data[k]!==undefined) localStorage.setItem(k, data[k]);
+  });
+}
+function triggerBackupImport(){
+  const input=document.createElement('input');
+  input.type='file'; input.accept='.json,application/json';
+  input.onchange=e=>{
+    const file=e.target.files[0]; if(!file) return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      let data=null;
+      try{
+        const payload=JSON.parse(ev.target.result);
+        data=(payload && payload.data && typeof payload.data==='object') ? payload.data : payload;
+        if(!data || typeof data!=='object') throw new Error('bad shape');
+      }catch(err){
+        showToast('Archivo de copia inv\u00e1lido');
+        return;
+      }
+      openConfirm('Restaurar copia de seguridad', 'Esto reemplazar\u00e1 TODOS tus datos actuales (progreso, mazos, ajustes, capturas) por los de esta copia. No se puede deshacer.', 'Restaurar', ()=>{
+        restoreBackupData(data);
+        showToast('Copia restaurada');
+        renderMazos();
+      });
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
 const content=document.getElementById('content');
 const topTitle=document.getElementById('topTitle');
 const backBtn=document.getElementById('backBtn');
@@ -827,6 +894,10 @@ function getThemePref(){ return loadJSON('dk_theme_v1', 'dark'); }
 function setThemePref(v){ saveJSON('dk_theme_v1', v); applyTheme(); }
 function resolveTheme(pref){
   if(pref==='light'||pref==='dark') return pref;
+  if(pref==='system'){
+    if(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) return 'dark';
+    return 'light';
+  }
   const h=new Date().getHours();
   return (h>=7 && h<19) ? 'light' : 'dark';
 }
@@ -852,7 +923,7 @@ function applyFont(){
 }
 function openGeneralSettings(){
   const pref=getThemePref();
-  const labelMap={light:'Claro',dark:'Oscuro',auto:'Autom\u00e1tico (seg\u00fan la hora)'};
+  const labelMap={light:'Claro',dark:'Oscuro',auto:'Autom\u00e1tico (seg\u00fan la hora)',system:'Autom\u00e1tico (seg\u00fan el sistema)'};
   const voicePref=getVoicePref();
   const styleLabelMap={inferior:'Inferior',pulgar:'Pulgar (flotante)'};
   const respStyle=getResponseStyle();
@@ -867,10 +938,13 @@ function openGeneralSettings(){
       '<div style="font-size:11px;color:var(--ink-soft);margin-top:10px;">Puedes arrastrar el grupo de botones a la posici\u00f3n que te sea m\u00e1s c\u00f3moda durante el repaso.</div>'+
       '</div>';
   }
+  html+='<div class="sub-label" style="padding:16px 16px 4px;">Datos</div>';
+  html+=setRow('download','Exportar copia de seguridad', '')+setRow('upload','Importar copia de seguridad', '');
+  html+='<div style="font-size:11px;color:var(--ink-soft);padding:8px 16px 4px;line-height:1.5;">Al exportar se abre el panel de compartir de iPhone: puedes enviarla por Mail (a tu Gmail), guardarla en Google Drive, iCloud u otro sitio.</div>';
   openSheet('Ajustes', html);
   const rows=document.querySelectorAll('.set-row');
   rows[0].onclick=()=>{
-    openPicker('Tema', [['light','Claro'],['dark','Oscuro'],['auto','Autom\u00e1tico (seg\u00fan la hora)']].map(v=>({label:v[1],value:v[0]})), pref, v=>{ setThemePref(v); openGeneralSettings(); });
+    openPicker('Tema', [['light','Claro'],['dark','Oscuro'],['auto','Autom\u00e1tico (seg\u00fan la hora)'],['system','Autom\u00e1tico (seg\u00fan el sistema)']].map(v=>({label:v[1],value:v[0]})), pref, v=>{ setThemePref(v); openGeneralSettings(); });
   };
   rows[1].onclick=()=>{
     ensureVoicesLoaded(voices=>{
@@ -884,6 +958,8 @@ function openGeneralSettings(){
   rows[3].onclick=()=>{
     openPicker('Tipo de letra', FONT_OPTIONS.map(f=>({label:f[1],value:f[0]})), fontPref, v=>{ setFontPref(v); openGeneralSettings(); });
   };
+  rows[4].onclick=exportBackup;
+  rows[5].onclick=triggerBackupImport;
   const slider=document.getElementById('opacitySlider');
   if(slider) slider.addEventListener('input', e=>{
     const v=parseInt(e.target.value);
@@ -1395,6 +1471,50 @@ function barChart(items){
     return '<div class="bar-wrap"><span class="val">'+x[1]+'</span><div class="bar" style="height:'+hpx+'px;background:var('+x[2]+');"></div><span class="lbl">'+x[0]+'</span></div>';
   }).join('')+'</div>';
 }
+function heatColor(count){
+  if(count===null) return 'transparent';
+  if(count===0) return 'var(--line)';
+  if(count<10) return 'color-mix(in srgb, var(--teal) 35%, var(--row))';
+  if(count<30) return 'color-mix(in srgb, var(--teal) 60%, var(--row))';
+  if(count<80) return 'color-mix(in srgb, var(--teal) 85%, var(--row))';
+  return 'var(--teal)';
+}
+function buildHeatmapWeeks(numWeeks, map){
+  const today=new Date(); today.setHours(0,0,0,0);
+  const todayDow=today.getDay();
+  const end=new Date(today); end.setDate(end.getDate()+(6-todayDow));
+  const start=new Date(end); start.setDate(start.getDate()-(numWeeks*7-1));
+  const weeksArr=[];
+  let cursor=new Date(start);
+  for(let w=0; w<numWeeks; w++){
+    const col=[];
+    for(let d=0; d<7; d++){
+      const key=dayKey(cursor);
+      const isFuture=cursor>today;
+      col.push({date:new Date(cursor), count: isFuture?null:(map[key]||0)});
+      cursor.setDate(cursor.getDate()+1);
+    }
+    weeksArr.push(col);
+  }
+  return weeksArr;
+}
+function renderHeatmapHTML(numWeeks, map){
+  const weeksArr=buildHeatmapWeeks(numWeeks, map);
+  let html='<div style="padding:6px 16px 4px;">';
+  html+='<div class="sub-label" style="padding:0 0 6px;">Constancia</div>';
+  html+='<div style="display:flex;gap:3px;overflow-x:auto;padding-bottom:4px;">';
+  weeksArr.forEach(col=>{
+    html+='<div style="display:flex;flex-direction:column;gap:3px;flex:0 0 auto;">';
+    col.forEach(cell=>{
+      const color=heatColor(cell.count);
+      const label=cell.count===null?'':(dayKey(cell.date)+': '+cell.count+' repasos');
+      html+='<div title="'+label+'" style="width:10px;height:10px;border-radius:2px;background:'+color+';"></div>';
+    });
+    html+='</div>';
+  });
+  html+='</div></div>';
+  return html;
+}
 function renderStats(){
   state.screen='stats'; state.deckId=null;
   topTitle.textContent='Estad\u00edsticas'; backBtn.style.display='none'; plusBtn.style.display='none'; settingsBtn.style.display='none'; captureBtn.style.display='flex';
@@ -1435,6 +1555,7 @@ function renderStats(){
   h+=metricRow([['Objetivo diario', goal],['Racha (d\u00edas)', streak]]);
   h+=metricRow([['D\u00edas con objetivo (30d)', daysWithGoal30+'/30'],['D\u00edas activos', activeDays]]);
   h+=metricRow([['Mejor d\u00eda', bestDay? bestDay+' \u00b7 '+bestVal : '\u2014']]);
+  h+=renderHeatmapHTML(16, map);
 
   h+=sectionLabel('Biblioteca');
   h+=metricRow([['Mazos', allDeckIds().length],['Tarjetas', allCardsArr.length]]);
@@ -1723,8 +1844,11 @@ function renderStudyCard(){
   if(studySettings.autoFlip>0){
     autoFlipTimer=setTimeout(()=>{ if(!flipped) doFlip(); }, studySettings.autoFlip*1000);
   }
+  setupSwipeGestures();
 }
+let swipeJustRated=false;
 function onCardTap(){
+  if(swipeJustRated){ swipeJustRated=false; return; }
   doFlip();
 }
 function doFlip(){
@@ -1732,6 +1856,50 @@ function doFlip(){
   flipped=!flipped;
   document.getElementById('cardFlip').classList.toggle('flipped', flipped);
   setRatingsVisible(flipped);
+}
+function setupSwipeGestures(){
+  const stage=document.querySelector('.stage');
+  if(!stage) return;
+  let startX=0, startY=0, swiping=false;
+  stage.style.transition='transform 0.25s ease';
+  stage.addEventListener('pointerdown', e=>{
+    if(!flipped) return;
+    swiping=true;
+    startX=e.clientX; startY=e.clientY;
+    stage.style.transition='none';
+    try{ stage.setPointerCapture(e.pointerId); }catch(err){}
+  });
+  stage.addEventListener('pointermove', e=>{
+    if(!swiping) return;
+    const dx=e.clientX-startX, dy=e.clientY-startY;
+    stage.style.transform='translate('+dx+'px,'+dy+'px) rotate('+(dx/20)+'deg)';
+  });
+  stage.addEventListener('pointerup', e=>{
+    if(!swiping) return;
+    swiping=false;
+    const dx=e.clientX-startX, dy=e.clientY-startY;
+    const threshold=80;
+    let grade=null;
+    if(Math.abs(dx)>=Math.abs(dy)){
+      if(dx>threshold) grade=3;
+      else if(dx<-threshold) grade=1;
+    } else {
+      if(dy<-threshold) grade=4;
+      else if(dy>threshold) grade=2;
+    }
+    stage.style.transition='transform 0.25s ease';
+    if(grade){
+      swipeJustRated=true;
+      const flyX=dx>0? 500 : (dx<0? -500 : 0);
+      const flyY=dy>0? 500 : (dy<0? -500 : 0);
+      stage.style.transform='translate('+(Math.abs(dx)>=Math.abs(dy)?flyX:dx)+'px,'+(Math.abs(dy)>Math.abs(dx)?flyY:dy)+'px) rotate('+(dx/10)+'deg)';
+      stage.style.opacity='0';
+      setTimeout(()=>{ applyRating(grade); }, 180);
+    } else {
+      stage.style.transform='';
+    }
+  });
+  stage.addEventListener('pointercancel', ()=>{ swiping=false; stage.style.transform=''; });
 }
 function applyRating(g){
   const c=studyQueue[studyIdx];
@@ -1795,8 +1963,18 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
 applyTheme();
 applyFont();
 renderMazos();
+try{
+  const params=new URLSearchParams(window.location.search);
+  const action=params.get('action');
+  if(action==='omni') renderOmni();
+  else if(action==='capture') openCapture();
+  if(action){ window.history.replaceState({}, '', window.location.pathname); }
+}catch(e){}
 document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) applyTheme(); });
 setInterval(applyTheme, 15*60000);
+if(window.matchMedia){
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', ()=>{ if(getThemePref()==='system') applyTheme(); });
+}
 if('serviceWorker' in navigator){
   window.addEventListener('load', ()=>{ navigator.serviceWorker.register('service-worker.js').catch(()=>{}); });
 }
