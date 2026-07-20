@@ -1471,52 +1471,65 @@ function barChart(items){
     return '<div class="bar-wrap"><span class="val">'+x[1]+'</span><div class="bar" style="height:'+hpx+'px;background:var('+x[2]+');"></div><span class="lbl">'+x[0]+'</span></div>';
   }).join('')+'</div>';
 }
-function heatColor(count){
-  if(count===null) return 'transparent';
-  if(count===0) return 'var(--line)';
-  if(count<10) return 'color-mix(in srgb, var(--teal) 35%, var(--row))';
-  if(count<30) return 'color-mix(in srgb, var(--teal) 60%, var(--row))';
-  if(count<80) return 'color-mix(in srgb, var(--teal) 85%, var(--row))';
-  return 'var(--teal)';
-}
-function buildHeatmapWeeks(numWeeks, map){
-  const today=new Date(); today.setHours(0,0,0,0);
-  const todayDow=today.getDay();
-  const end=new Date(today); end.setDate(end.getDate()+(6-todayDow));
-  const start=new Date(end); start.setDate(start.getDate()-(numWeeks*7-1));
-  const weeksArr=[];
-  let cursor=new Date(start);
-  for(let w=0; w<numWeeks; w++){
-    const col=[];
-    for(let d=0; d<7; d++){
-      const key=dayKey(cursor);
-      const isFuture=cursor>today;
-      col.push({date:new Date(cursor), count: isFuture?null:(map[key]||0)});
-      cursor.setDate(cursor.getDate()+1);
-    }
-    weeksArr.push(col);
+const MONTH_NAMES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const DOW_LABELS=['L','M','X','J','V','S','D'];
+let calMonthOffset=0;
+function getMonthGrid(offsetMonths, map, goal){
+  const now=new Date(); now.setHours(0,0,0,0);
+  const base=new Date(now.getFullYear(), now.getMonth()+offsetMonths, 1);
+  const year=base.getFullYear(), month=base.getMonth();
+  const firstDow=(new Date(year,month,1).getDay()+6)%7; // Monday=0..Sunday=6
+  const daysInMonth=new Date(year,month+1,0).getDate();
+  const cells=[];
+  for(let i=0;i<firstDow;i++) cells.push(null);
+  for(let day=1; day<=daysInMonth; day++){
+    const date=new Date(year,month,day);
+    const key=dayKey(date);
+    const isFuture=date>now;
+    const count=isFuture?0:(map[key]||0);
+    const isToday=dayKey(now)===key;
+    const met=!isFuture && count>=goal;
+    const practiced=!isFuture && count>0 && !met;
+    cells.push({day, date, count, isFuture, isToday, met, practiced});
   }
-  return weeksArr;
+  while(cells.length%7!==0) cells.push(null);
+  const rows=[];
+  for(let i=0;i<cells.length;i+=7) rows.push(cells.slice(i,i+7));
+  return {year, month, rows};
 }
-function renderHeatmapHTML(numWeeks, map){
-  const weeksArr=buildHeatmapWeeks(numWeeks, map);
-  let html='<div style="padding:6px 16px 4px;">';
-  html+='<div class="sub-label" style="padding:0 0 6px;">Constancia</div>';
-  html+='<div style="display:flex;gap:3px;overflow-x:auto;padding-bottom:4px;">';
-  weeksArr.forEach(col=>{
-    html+='<div style="display:flex;flex-direction:column;gap:3px;flex:0 0 auto;">';
-    col.forEach(cell=>{
-      const color=heatColor(cell.count);
-      const label=cell.count===null?'':(dayKey(cell.date)+': '+cell.count+' repasos');
-      html+='<div title="'+label+'" style="width:10px;height:10px;border-radius:2px;background:'+color+';"></div>';
+function renderCalendarHTML(map, goal){
+  const {year, month, rows}=getMonthGrid(calMonthOffset, map, goal);
+  let html='<div style="padding:10px 16px 4px;">';
+  html+='<div class="sub-label" style="padding:0 0 8px;">Calendario</div>';
+  html+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">';
+  html+='<button class="glass-btn" id="calPrev" style="width:30px;height:30px;background:var(--row);color:var(--ink);"><i class="ti ti-chevron-left"></i></button>';
+  html+='<div style="font-size:16px;"><b style="color:var(--ink);">'+MONTH_NAMES[month]+'</b> <span style="color:var(--ink-soft);">'+year+'</span></div>';
+  html+='<button class="glass-btn" id="calNext" style="width:30px;height:30px;background:var(--row);color:var(--ink);"><i class="ti ti-chevron-right"></i></button>';
+  html+='</div>';
+  html+='<div id="calSwipeArea">';
+  html+='<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px;">';
+  DOW_LABELS.forEach(l=>{ html+='<div style="text-align:center;font-size:10px;color:var(--ink-soft);">'+l+'</div>'; });
+  html+='</div>';
+  rows.forEach(row=>{
+    html+='<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px;">';
+    row.forEach(cell=>{
+      if(!cell){ html+='<div></div>'; return; }
+      let bg='var(--line)', fg='var(--ink-soft)', star='';
+      if(cell.met){ bg='var(--teal)'; fg='#fff'; star='<i class="ti ti-star" style="font-size:11px;"></i>'; }
+      else if(cell.practiced){ bg='color-mix(in srgb, var(--teal) 40%, var(--row))'; fg='var(--ink)'; }
+      else if(cell.isFuture){ bg='transparent'; fg='var(--ink-soft)'; }
+      const border=cell.isToday?'border:2px dashed var(--teal);':'border:2px solid transparent;';
+      html+='<div title="'+dayKey(cell.date)+': '+cell.count+' repasos" style="'+border+'aspect-ratio:1;border-radius:9px;background:'+bg+';color:'+fg+';display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;gap:1px;">'+cell.day+star+'</div>';
     });
     html+='</div>';
   });
   html+='</div></div>';
   return html;
 }
-function renderStats(){
+
+function renderStats(keepCalendar){
   state.screen='stats'; state.deckId=null;
+  if(!keepCalendar) calMonthOffset=0;
   topTitle.textContent='Estad\u00edsticas'; backBtn.style.display='none'; plusBtn.style.display='none'; settingsBtn.style.display='none'; captureBtn.style.display='flex';
   const log=loadJSON(LOG_KEY,[]);
   const map=reviewsByDay();
@@ -1555,7 +1568,7 @@ function renderStats(){
   h+=metricRow([['Objetivo diario', goal],['Racha (d\u00edas)', streak]]);
   h+=metricRow([['D\u00edas con objetivo (30d)', daysWithGoal30+'/30'],['D\u00edas activos', activeDays]]);
   h+=metricRow([['Mejor d\u00eda', bestDay? bestDay+' \u00b7 '+bestVal : '\u2014']]);
-  h+=renderHeatmapHTML(16, map);
+  h+=renderCalendarHTML(map, goal);
 
   h+=sectionLabel('Biblioteca');
   h+=metricRow([['Mazos', allDeckIds().length],['Tarjetas', allCardsArr.length]]);
@@ -1574,8 +1587,26 @@ function renderStats(){
   content.innerHTML=h;
   const goalCard=content.querySelector('[data-goal-card]');
   if(goalCard) goalCard.onclick=()=>{
-    openPicker('Objetivo diario de estudio', [20,50,100,150,200,300].map(v=>({label:String(v),value:String(v)})), String(goal), v=>{ saveJSON('dk_goal_v1', parseInt(v)); renderStats(); });
+    openPicker('Objetivo diario de estudio', [20,50,100,150,200,300].map(v=>({label:String(v),value:String(v)})), String(goal), v=>{ saveJSON('dk_goal_v1', parseInt(v)); renderStats(true); });
   };
+  const calPrev=document.getElementById('calPrev');
+  const calNext=document.getElementById('calNext');
+  if(calPrev) calPrev.onclick=()=>{ calMonthOffset--; renderStats(true); };
+  if(calNext) calNext.onclick=()=>{ calMonthOffset++; renderStats(true); };
+  const swipeArea=document.getElementById('calSwipeArea');
+  if(swipeArea){
+    let startX=0, startY=0, dragging=false;
+    swipeArea.addEventListener('pointerdown', e=>{ dragging=true; startX=e.clientX; startY=e.clientY; });
+    swipeArea.addEventListener('pointerup', e=>{
+      if(!dragging) return;
+      dragging=false;
+      const dx=e.clientX-startX, dy=e.clientY-startY;
+      if(Math.abs(dx)>50 && Math.abs(dx)>Math.abs(dy)){
+        calMonthOffset += dx<0 ? 1 : -1;
+        renderStats(true);
+      }
+    });
+  }
 }
 
 /* ---------- OmniRepaso ---------- */
