@@ -414,7 +414,7 @@ function logReview(cardId,level,grade,elapsedMs){
   if(log.length>20000) log.splice(0, log.length-20000);
   saveJSON(LOG_KEY,log);
 }
-function dayKey(d){ return d.toISOString().slice(0,10); }
+function dayKey(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function reviewsByDay(){
   const log=loadJSON(LOG_KEY,[]);
   const map={};
