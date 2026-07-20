@@ -899,6 +899,12 @@ function triggerBackupImport(){
 }
 
 const content=document.getElementById('content');
+function resetContentScroll(){
+  content.style.overflowY='hidden';
+  content.scrollTop=0;
+  void content.offsetHeight;
+  content.style.overflowY='';
+}
 const topTitle=document.getElementById('topTitle');
 const backBtn=document.getElementById('backBtn');
 function getThemePref(){ return loadJSON('dk_theme_v1', 'dark'); }
@@ -1071,8 +1077,9 @@ function renderCapture(){
   }
 
   content.innerHTML=h;
-  content.scrollTop=0;
+  resetContentScroll();
 
+  const wordEl=document.getElementById('capWord');
   const noteEl=document.getElementById('capNote');
   function doSave(){
     const word=wordEl.value.trim();
@@ -1152,7 +1159,7 @@ function renderMazos(){
   const trashCount=trashedDeckIds().length;
   h+='<div class="deck-row" id="trashRow" style="margin-top:10px;"><div><div class="name" style="font-size:14px;">\ud83d\uddd1\ufe0f Papelera</div><div class="sub">'+(trashCount?trashCount+' mazo(s) eliminado(s)':'vac\u00eda')+'</div></div></div>';
   content.innerHTML=h;
-  content.scrollTop=0;
+  resetContentScroll();
   document.querySelectorAll('.deck-row[data-id]').forEach(el=>el.onclick=()=>renderDeck(el.dataset.id));
   document.getElementById('trashRow').onclick=renderTrash;
 }
@@ -1179,7 +1186,7 @@ function renderTrash(){
     });
   }
   content.innerHTML=h;
-  content.scrollTop=0;
+  resetContentScroll();
   content.querySelectorAll('[data-restore]').forEach(el=>el.onclick=()=>{ restoreDeck(el.dataset.restore); renderTrash(); });
   content.querySelectorAll('[data-purge]').forEach(el=>{
     el.onclick=()=>{
@@ -1231,7 +1238,7 @@ function renderDeck(id){
   h+='<div class="sticky-bottom"><div><div class="go"><i class="ti ti-player-play"></i>Repasar'+(activeBucket?' ('+bucketLabel(activeBucket)+')':'')+'</div><div class="est">Tiempo estimado '+estMinutes(cappedCount)+' min</div></div><span class="count">'+cappedCount+'</span></div>';
 
   content.innerHTML=h;
-  content.scrollTop=0;
+  resetContentScroll();
 
   document.querySelectorAll('.set-row').forEach(el=>{
     el.onclick=()=>{
@@ -1348,7 +1355,7 @@ function renderTarjetas(deckId, opts){
     wordTypes.map(w=>'<span class="tj-letter'+(tarjetasWordType===w?' active':'')+'" data-wt="'+w+'">'+wordTypeEmoji(w)+' '+(WORDTYPE_LABEL[w]||w)+'</span>').join('')+'</div>';
   h+='<div id="tjResults"></div>';
   content.innerHTML=h;
-  content.scrollTop=0;
+  resetContentScroll();
 
   content.querySelectorAll('.tj-vbtn[data-v]').forEach(b=>b.onclick=()=>{
     tarjetasView=b.dataset.v;
@@ -1601,7 +1608,7 @@ function renderStats(keepCalendar){
   h+='<div style="height:14px;"></div>';
 
   content.innerHTML=h;
-  if(!keepCalendar) content.scrollTop=0;
+  if(!keepCalendar) resetContentScroll();
   const goalCard=content.querySelector('[data-goal-card]');
   if(goalCard) goalCard.onclick=()=>{
     openPicker('Objetivo diario de estudio', [20,50,100,150,200,300].map(v=>({label:String(v),value:String(v)})), String(goal), v=>{ saveJSON('dk_goal_v1', parseInt(v)); renderStats(true); });
@@ -1681,7 +1688,7 @@ function renderOmni(){
   h+='<div class="sticky-bottom"><div><div class="go"><i class="ti ti-player-play"></i>Repasar</div><div class="est">Tiempo estimado '+estMinutes(omniCapped)+' min</div></div><span class="count">'+omniCapped+'</span></div>';
 
   content.innerHTML=h;
-  content.scrollTop=0;
+  resetContentScroll();
   document.querySelectorAll('.set-row').forEach(el=>{
     el.onclick=()=>{
       const label=el.dataset.label;
@@ -1956,7 +1963,7 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');
-    content.scrollTop=0;
+    resetContentScroll();
     if(btn.dataset.tab==='mazos') renderMazos();
     if(btn.dataset.tab==='stats') renderStats();
     if(btn.dataset.tab==='omni') renderOmni();
